@@ -54,7 +54,7 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
   library(dplyr)
   library(tibble)
   
-  
+  # Criar dummies
   mediana_idade <- median(df$idade)
   mediana_altura <- median(df$altura)
   mediana_peso <- median(df$peso)
@@ -66,7 +66,7 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
       dummy_peso = ifelse(peso >= mediana_peso, 1, 0)
     )
   
-  
+  # Transformar resposta em fator
   df[[var_resposta]] <- relevel(as.factor(df[[var_resposta]]), ref = "C")
   
   resultados <- list()
@@ -83,16 +83,16 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
       )
   }
   
-  # 1 MODELO NULO
-  modelo_nulo <- vglm(as.formula(paste(var_resposta, "~ 1")),
-                      family = multinomial(), data = df)
+  # 1. Modelo nulo
+  modelo_nulo <- vglm(as.formula(paste(var_resposta, "~ 1")), family = multinomial(), data = df)
   resultados$nulo <- list(
     deviance = deviance(modelo_nulo),
     aic = AIC(modelo_nulo),
-    coefficients = extract_coefs(modelo_nulo)
+    coefficients = extract_coefs(modelo_nulo),
+    modelo = modelo_nulo
   )
   
-  # 2. MODELO COM AS VARIVEIS INDIVIDUAIS - TEM ALGUMA UTILIDADE ??????
+  # 2. Modelos com variáveis individuais
   resultados$var_individuais <- list()
   for (var in var_explicativas) {
     formula <- as.formula(paste(var_resposta, "~", var))
@@ -101,21 +101,22 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
     resultados$var_individuais[[var]] <- list(
       deviance = deviance(modelo),
       aic = AIC(modelo),
-      coefficients = extract_coefs(modelo)
+      coefficients = extract_coefs(modelo),
+      modelo = modelo
     )
   }
   
-  # 3 MODELO COMPLETO
+  # 3. Modelo completo
   formula_completo <- as.formula(paste(var_resposta, "~", paste(var_explicativas, collapse = " + ")))
   modelo_completo <- vglm(formula_completo, family = multinomial(), data = df)
-  
   resultados$completo <- list(
     deviance = deviance(modelo_completo),
     aic = AIC(modelo_completo),
-    coefficients = extract_coefs(modelo_completo)
+    coefficients = extract_coefs(modelo_completo),
+    modelo = modelo_completo
   )
   
-  # 4 MODELO COM AS INTERACOES DE SEGUNDA ORDEM - EU ACHO QUE ESSE RESOLVE O MODELO 5 E 6 
+  # 4. Modelo com todas as interações
   formula_interacoes <- as.formula(paste(var_resposta, "~ (", paste(var_explicativas, collapse = " + "), ")^2"))
   modelo_interacoes <- tryCatch({
     vglm(formula_interacoes, family = multinomial(), data = df)
@@ -127,11 +128,11 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
       deviance = deviance(modelo_interacoes),
       aic = AIC(modelo_interacoes),
       coefficients = extract_coefs(modelo_interacoes),
-      interacoes_incluidas = combn(var_explicativas, 2, FUN = paste, collapse = ":")
+      modelo = modelo_interacoes
     )
   }
   
-  # 5 MODELO DE INTERECAO INDIVIDUAL
+  # 5. Interações individuais
   resultados$interacoes_individuais <- list()
   pares_interacao <- combn(var_explicativas, 2, simplify = FALSE)
   for (par in pares_interacao) {
@@ -145,31 +146,29 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
       resultados$interacoes_individuais[[termo_interacao]] <- list(
         deviance = deviance(modelo_int),
         aic = AIC(modelo_int),
-        coefficients = extract_coefs(modelo_int)
+        coefficients = extract_coefs(modelo_int),
+        modelo = modelo_int
       )
     }
   }
   
-  # 6 MODELO QUE INCREMENTA AS INTERACOES 
-  
+  # 6. Incremental com interações
   resultados$modelo_incremental_interacoes <- list()
-  efeitos_principais <- var_explicativas
   interacoes <- combn(var_explicativas, 2, simplify = FALSE)
-  
-  formula_base <- paste(var_resposta, "~", paste(efeitos_principais, collapse = " + "))
+  formula_base <- paste(var_resposta, "~", paste(var_explicativas, collapse = " + "))
   modelo_base <- vglm(as.formula(formula_base), family = multinomial(), data = df)
   
   resultados$modelo_incremental_interacoes[["sem_interacoes"]] <- list(
     formula = formula_base,
     deviance = deviance(modelo_base),
     aic = AIC(modelo_base),
-    coefficients = extract_coefs(modelo_base)
+    coefficients = extract_coefs(modelo_base),
+    modelo = modelo_base
   )
   
   for (i in seq_along(interacoes)) {
     interacoes_atuais <- sapply(interacoes[1:i], function(x) paste(x, collapse = ":"))
     formula_atual <- paste(formula_base, "+", paste(interacoes_atuais, collapse = " + "))
-    
     modelo <- tryCatch({
       vglm(as.formula(formula_atual), family = multinomial(), data = df)
     }, error = function(e) NULL)
@@ -179,7 +178,8 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
         formula = formula_atual,
         deviance = deviance(modelo),
         aic = AIC(modelo),
-        coefficients = extract_coefs(modelo)
+        coefficients = extract_coefs(modelo),
+        modelo = modelo
       )
     }
   }
@@ -187,8 +187,9 @@ funcao_regressao <- function(df, var_resposta = "turma", var_explicativas = c("s
   return(resultados)
 }
 
-
 resultados<-funcao_regressao(dados_94_alunos)
+
+
 
 
 get_min_model_info <- function(model_list) {
@@ -203,11 +204,11 @@ get_min_model_info <- function(model_list) {
     modelo_deviance = names(devs)[min_dev_idx],
     menor_deviance = devs[min_dev_idx],
     modelo_aic = names(aics)[min_aic_idx],
-    menor_aic = aics[min_aic_idx]
+    menor_aic = aics[min_aic_idx],
+    modelo_obj_deviance = list(model_list[[names(devs)[min_dev_idx]]]$modelo),
+    modelo_obj_aic = list(model_list[[names(aics)[min_aic_idx]]]$modelo)
   )
 }
-
-
 
 
 resumo_modelos <- tibble::tibble(
@@ -216,34 +217,40 @@ resumo_modelos <- tibble::tibble(
   modelo_deviance = c(
     "completo",
     if (!is.null(resultados$modelo_interacoes)) "modelo_interacoes" else NA,
-    get_min_model_info(resultados$interacoes_individuais)$modelo_deviance,
-    get_min_model_info(resultados$modelo_incremental_interacoes)$modelo_deviance
+    info_individuais$modelo_deviance,
+    info_incrementais$modelo_deviance
   ),
   
   menor_deviance = c(
     resultados$completo$deviance,
     if (!is.null(resultados$modelo_interacoes)) resultados$modelo_interacoes$deviance else NA,
-    get_min_model_info(resultados$interacoes_individuais)$menor_deviance,
-    get_min_model_info(resultados$modelo_incremental_interacoes)$menor_deviance
+    info_individuais$menor_deviance,
+    info_incrementais$menor_deviance
   ),
   
   modelo_aic = c(
     "completo",
     if (!is.null(resultados$modelo_interacoes)) "modelo_interacoes" else NA,
-    get_min_model_info(resultados$interacoes_individuais)$modelo_aic,
-    get_min_model_info(resultados$modelo_incremental_interacoes)$modelo_aic
+    info_individuais$modelo_aic,
+    info_incrementais$modelo_aic
   ),
   
   menor_aic = c(
     resultados$completo$aic,
     if (!is.null(resultados$modelo_interacoes)) resultados$modelo_interacoes$aic else NA,
-    get_min_model_info(resultados$interacoes_individuais)$menor_aic,
-    get_min_model_info(resultados$modelo_incremental_interacoes)$menor_aic
+    info_individuais$menor_aic,
+    info_incrementais$menor_aic
   )
 )
 
+
 print(resumo_modelos)
 
+info_individuais <- get_min_model_info(resultados$interacoes_individuais)
+info_incrementais <- get_min_model_info(resultados$modelo_incremental_interacoes)
+
+summary(info_individuais$modelo_obj_deviance[[1]])
+summary(info_incrementais$modelo_obj_aic[[1]])
 
 
 
