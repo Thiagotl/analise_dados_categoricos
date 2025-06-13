@@ -1,0 +1,209 @@
+---
+title: "Trabalho dados categóricos"
+author: "Thiago Tavares Lopes"
+date: "2025-06-13"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+rm(list=objects())
+# Dados das preferências de aprendizado
+dados_escola <- data.frame(
+  Escola = c(1, 1, 2, 2, 3, 3),
+  Periodo = c(0,1,0,1,0,1),
+  Individual = c(10, 5, 21, 16, 15, 12),
+  Grupo = c(17, 12, 17, 12, 15, 12),
+  SalaDeAula = c(26, 50, 26, 36, 16, 20)
+)
+
+dados_escola$Escola <- factor(dados_escola$Escola, levels = c("1","2", "3"), labels = c("A", "B", "C"))
+dados_escola$Periodo <- factor(dados_escola$Periodo, levels = c("0","1"), labels = c("Padrao", "Integral"))
+
+dados_escola
+
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+dados_melt <- melt(dados_escola, id.vars = c("Escola", "Periodo"))
+dados_melt <- rename(dados_melt, Preferencia = variable)
+dados_melt <- rename(dados_melt, Contagem = value)
+
+plot_grafico <- function(dados) {
+  grafico_escola <- ggplot(dados, aes(x = Periodo, y = Contagem, fill = Preferencia)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(x = "Periodo", y = "Contagem", fill = "Preferencia") +
+    scale_fill_manual(values = c("Individual" = "gray30", "Grupo" = "gray50", "SalaDeAula" = "gray70")) +
+    ggtitle(paste("Escola", unique(dados$Escola))) +
+    theme_bw() +
+    geom_text(aes(label = paste0(Contagem)), position = position_dodge(width = 0.9), vjust = -0.5)
+  
+  print(grafico_escola)
+}
+
+dados_escola_1 <- subset(dados_melt, Escola == "A")
+dados_escola_2 <- subset(dados_melt, Escola == "B")
+dados_escola_3 <- subset(dados_melt, Escola == "C")
+
+plot_grafico(dados_escola_1)
+plot_grafico(dados_escola_2)
+plot_grafico(dados_escola_3)
+```
+
+```{r}
+# Criando o data frame
+dados_escola <- data.frame(
+  Escola = c(1, 1, 2, 2, 3, 3),
+  Periodo = c(0,1,0,1,0,1),
+  Individual = c(0.189, 0.075, 0.328, 0.250, 0.326, 0.273),
+  Grupo = c(0.321, 0.179, 0.266, 0.188, 0.326, 0.273),
+  SalaDeAula = c(0.491, 0.746, 0.406, 0.563, 0.348, 0.455)
+)
+
+dados_escola$Escola <- factor(dados_escola$Escola, levels = c("1","2", "3"), labels = c("A", "B", "C"))
+dados_escola$Periodo <- factor(dados_escola$Periodo, levels = c("0","1"), labels = c("Padrao", "Integral"))
+
+library(ggplot2)
+library(reshape2)
+
+dados_melt <- melt(dados_escola, id.vars = c("Escola", "Periodo"))
+dados_melt <- rename(dados_melt, Preferencia = variable)
+dados_melt <- rename(dados_melt, Proporcao = value)
+
+plot_grafico <- function(dados) {
+  grafico_escola <- ggplot(dados, aes(x = Periodo, y = Proporcao, fill = Preferencia)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(x = "Periodo", y = "Proporcao", fill = "Preferencia") +
+    scale_fill_manual(values = c("Individual" = "gray30", "Grupo" = "gray50", "SalaDeAula" = "gray70")) +
+    ggtitle(paste("Escola", unique(dados$Escola))) +
+    theme_bw() +
+    geom_text(aes(label = paste0(round(Proporcao * 100), "%")), position = position_dodge(width = 0.9), vjust = -0.5)
+  
+  print(grafico_escola)
+}
+
+# Separar os dados por escola
+dados_escola_1 <- subset(dados_melt, Escola == "A")
+dados_escola_2 <- subset(dados_melt, Escola == "B")
+dados_escola_3 <- subset(dados_melt, Escola == "C")
+
+plot_grafico(dados_escola_1)
+plot_grafico(dados_escola_2)
+plot_grafico(dados_escola_3)
+```
+
+
+
+# Tabela 8.1 - Dados das preferências de aprendizado
+```{r tab8.1, echo=FALSE}
+rm(list=objects())
+
+dados_escola <- data.frame(
+  Escola = c(1, 1, 2, 2, 3, 3),
+  Periodo = c(0,1,0,1,0,1),
+  Individual = c(10, 5, 21, 16, 15, 12),
+  Grupo = c(17, 12, 17, 12, 15, 12),
+  SalaDeAula = c(26, 50, 26, 36, 16, 20)
+)
+
+dados_escola$Escola <- factor(dados_escola$Escola, levels = c("1","2", "3"), labels = c("A", "B", "C"))
+dados_escola$Periodo <- factor(dados_escola$Periodo, levels = c("1","0"), labels = c("Padrao", "Integral"))
+
+dados_escola
+
+#install.packages("VGAM")
+library(VGAM)
+
+# ajustando o modelo MLCR Nulo
+(mlcr0 <-  vglm(cbind(Individual,Grupo,SalaDeAula) ~ 1, data = dados_escola, multinomial))
+summary(mlcr0)
+
+# ajustando o modelo MLCR com Escola como preditora
+(mlcr1 <- vglm(cbind(Individual,Grupo,SalaDeAula)~ factor(Escola), data = dados_escola, multinomial))
+summary(mlcr1)
+
+# ajustando o modelo MLCR com Período como preditoras
+#(mlcr2 <- vglm(cbind(Individual,Grupo,SalaDeAula) ~ factor(Periodo), data = dados_escola, multinomial))
+#summary(mlcr2)
+
+# ajustando o modelo com efeitos principais de Escola e Período 
+(mlcr3 <- vglm(cbind(Individual,Grupo,SalaDeAula) ~ factor(Escola) + factor(Periodo), data = dados_escola, multinomial))
+summary(mlcr3)  
+
+
+# ajustando o modelo MLCR com interação de Escola e Período 
+(mlcr4 <- vglm(cbind(Individual,Grupo,SalaDeAula) ~ factor(Escola)*factor(Periodo), data = dados_escola, multinomial))
+summary(mlcr4)
+
+# Seleção do modelo final
+tab8.2 <- anova(mlcr0,mlcr1,mlcr3,mlcr4, type=1)
+aic0 <- AIC(mlcr0)
+aic1 <- AIC(mlcr1)
+aic3 <- AIC(mlcr3)
+aic4 <- AIC(mlcr4)
+
+aics <- c(aic0, aic1, aic3, aic4)
+tab8.2$AIC <- aics
+tab8.2
+
+# Visualizar tabela atualizada
+
+
+# Obter as probabilidades observadas e preditas
+prob_obs <- as.vector(t(mlcr3@y))
+prob_pred <- t(fitted(mlcr3))
+
+# Criar a tabela com as colunas adicionais
+(tabela <- data.frame(Escola = rep(levels(dados_escola$Escola), each = 6),
+                      Periodo = rep(levels(dados_escola$Periodo), each = 3),
+                      MetodoDeEnsino = rep(c("Individual", "Grupo", "SalaDeAula"), times = nrow(dados_escola)),
+                      prob_obs = prob_obs,
+                      prob_pred = as.vector(prob_pred),
+                      dif = as.vector(prob_obs - prob_pred)))
+
+library(writexl)
+write_xlsx(tabela, "probabilidades_.xlsx")
+
+# Cria o gráfico de dispersão
+plot(prob_obs, prob_pred, xlab = "Probabilidade Observada", ylab = "Probabilidade Predita", abline(0, 1, col = "red"))
+```
+
+```{r}
+# Obter os valores ajustados
+fitted_values <- fitted(mlcr3)
+
+# Obter os resíduos de Pearson
+pearson_residuals <- resid(mlcr3, type = "pearson")
+
+# Gráfico de resíduos de Pearson para o logito 1
+plot(fitted_values[,1], pearson_residuals[,1], xlab = "Indice", ylab = "Residuos de Pearson", main = "Logito 1", ylim = c(-3, 3))
+
+# Gráfico de resíduos de Pearson para o logito 2
+plot(fitted_values[,2], pearson_residuals[,2], xlab = "Indice", ylab = "Residuos de Pearson", main = "Logito 2", ylim = c(-3, 3))
+
+```
+
+```{r}
+# Matriz de coeficientes do modelo final
+# Tab. 8.4 (B3j é perído INTEGRAL)
+coef(mlcr3, matrix=TRUE)
+
+# Extrair os coeficientes e erros-padrão
+coeficients <- coef(summary(mlcr3))[, "Estimate"]
+standard_errors <- coef(summary(mlcr3))[, "Std. Error"]
+
+# Criar a tabela com os coeficientes e erros-padrão
+coef_table <- cbind(coeficients, standard_errors)
+
+# Adicionar nomes às colunas da tabela
+colnames(coef_table) <- c("Coeficiente", "Erro-padrao")
+
+# Exibir a tabela
+coef_table
+
+```
+
