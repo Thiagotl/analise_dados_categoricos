@@ -1,0 +1,351 @@
+---
+title: "aula_reg_log_bi"
+author: "Thiago Tavares Lopes"
+date: "2025-06-24"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r tab7.7, echo=FALSE}
+library(knitr)
+
+# Criar o dataframe com os dados
+dados <- data.frame(
+Sexo = factor(c("Feminino", "Feminino", "Masculino", "Masculino")),
+  ECG = factor(c("< 0,1 ST", "≥ 0,1 ST", "< 0,1 ST", "≥ 0,1 ST")),
+  Presente = c(4, 8, 9, 21),
+  Ausente = c(11, 10, 9, 6),
+  Total = c(15, 18, 18, 27)
+)
+
+dados$VO <- dados$Presente / dados$Total #Valor observado de casos por categoria
+format(round(dados$VO, 2), nsmall = 2)
+
+str(dados)
+
+# Exibir a tabela formatada
+(tabela_formatada <- kable(dados, 
+                          col.names = c("Sexo", "ECG", "Presente", "Ausente", "Total", "Proporção observada"), align = c("l", "l", "c", "c", "c", "c")))
+
+# Modelo 1: Apenas intercepto
+modelo1 <- glm(as.matrix(dados[,c(3,4)]) ~ 1, data = dados, family = binomial)
+
+# Modelo 2: Intercepto e Sexo
+modelo2 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo, data = dados, family = binomial)
+
+# Modelo 3: Intercepto, Sexo e ECG
+modelo3 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo + ECG, data = dados, family = binomial)
+
+# Modelo 3: Intercepto, Sexo e ECG
+modelo4 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo * ECG, data = dados, family = binomial)
+
+summary(modelo1)
+summary(modelo2)
+summary(modelo3)
+summary(modelo4)
+
+(resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi"))
+
+# MODELO FINAL
+# EV = -1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)
+# SexoMasculino = {0,1}
+# ECG≥ 0,1 ST = {0,1}
+
+# Modelo de regressão logística estimado (modelo3)
+ggplot(dados, aes(x = Sexo, y = VO, color = ECG)) +
+  geom_point(size = 4*0.75) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +
+  labs(x = "Sexo", y = "Proporção observada", color = "ECG") +
+  ggtitle("Modelo de Regressão Logística Estimado") +
+  theme_bw() +
+  theme(legend.position = c(0.1, 0.7), 
+        axis.text.x = element_text(size = 13),
+        legend.text = element_text(size = 13))
+
+# Análise de resíduos do modelo final
+residuos_p <- residuals(modelo3, type = "pearson")
+residuos_d <- residuals(modelo3, type = "deviance")
+valor_predito <- predict(modelo3, type = "response")
+log_odds <- log(valor_predito / (1 - valor_predito))
+
+dados$VO <- dados$Presente / dados$Total #Valor observado de casos por categoria
+format(round(dados$VO, 2), nsmall = 2)
+
+# TABELA 7.10
+tabela7.10 <- data.frame(VO = dados$VO,
+                     VP = valor_predito,
+                     log_odds = log_odds,
+                     Pearson = residuos_p,
+                     Deviance = residuos_d)
+(tabela7.10 <- data.frame(lapply(tabela7.10, function(x) format(x, digits = 5, nsmall = 4))))
+
+library(dplyr)
+library(reshape2)
+
+# Criando o dataframe dos resíduos
+dados_residuos <- data.frame(Sexo = dados$Sexo, ECG = dados$ECG, Pearson = residuos_p, Deviance = residuos_d)
+dados_residuos_melted <- melt(dados_residuos, id.vars = c("Sexo", "ECG"))
+
+ggplot(dados_residuos_melted, aes(x = Sexo, y = value, color = variable, shape = ECG)) +
+  geom_point(size = 4) +
+  labs(x = "Sexo", y = "Resíduos", color = "Tipo de Resíduo", shape = "ECG") +
+  ggtitle("Scatterplot dos Resíduos de Pearson e Deviance") +
+  theme_bw() +
+  theme(legend.position = c(0.1, 0.5), 
+        axis.text.x = element_text(size = 13),
+        legend.text = element_text(size = 13))
+
+coeficientes <- coef(modelo3)
+
+# Razão de chances entre pacientes masculinos e femininos
+(odds_ratio <- exp(coeficientes["SexoMasculino"]))
+# Razão de chances entre ECG alto e baixo
+(odds_ratio <- exp(coeficientes["ECG≥ 0,1 ST"]))
+
+# Coeficientes do modelo
+b0 <- coef(modelo3)["(Intercept)"]
+b1 <- coef(modelo3)["SexoMasculino"]
+b2 <- coef(modelo3)["ECG≥ 0,1 ST"]
+
+# Avaliar a chance do paciente ser do sexo feminino e ter ECG alto
+(exp_valor <- exp(b0 + b2))
+
+# Intervalos de confiança para os coeficientes do modelo
+intervalos_confianca <- confint(modelo3)
+intervalo_confianca_sexo <- intervalos_confianca["SexoMasculino", ]
+(intervalo_confianca_sexo <- exp(intervalo_confianca_sexo))
+intervalo_confianca_ecg <- intervalos_confianca["ECG≥ 0,1 ST", ]
+(intervalo_confianca_ecg <- exp(intervalo_confianca_ecg))
+```
+
+```{r tab7.12, echo=FALSE}
+
+tab7.12 <- data.frame(
+"Diagnostico" = factor(c("Complicada", "Complicada", "Complicada", "Não complicada", "Não complicada", "Não complicada")),
+"Tratamento" = factor(c("A", "B", "C", "A", "B", "C")),
+"Sim" = c(78, 101, 68, 40, 54, 34),
+"Nao" = c(28, 11, 46, 5, 5, 6),
+"Total" = c(106, 112, 114, 45, 59, 40)
+)
+
+tab7.12
+
+# Modelo 1: Apenas intercepto
+modelo1 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ 1, data = tab7.12, family = binomial)
+
+# Modelo 2: Intercepto e Sexo
+modelo2 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico, data = tab7.12, family = binomial)
+
+# Modelo 3: Intercepto, Sexo e ECG
+modelo3 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico + Tratamento, data = tab7.12, family = binomial)
+
+# Modelo 3: Intercepto, Sexo e ECG
+modelo4 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico * Tratamento, data = tab7.12, family = binomial)
+
+summary(modelo1)
+summary(modelo2)
+summary(modelo3)
+summary(modelo4)
+
+# tabela 7.13
+(resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi"))
+
+# MODELO FINAL
+# log(P(Y = 1|X)) = 1.0415 + 0.9616 * (Diag Não complicada) + 0.9760 * TratamentoB - 0.5847 * TratamentoC
+
+# Análise de resíduos do modelo final
+residuos_p <- residuals(modelo3, type = "pearson")
+residuos_d <- residuals(modelo3, type = "deviance")
+valor_predito <- predict(modelo3, type = "response")
+log_odds <- log(valor_predito / (1 - valor_predito))
+chance <- exp(log_odds)
+
+# TABELA 7.16 e 7.17
+tabela <- data.frame(VO = tab7.12$VO,
+                     VP = valor_predito,
+                     Pearson = residuos_p,
+                     Deviance = residuos_d,
+                     log_odds = log_odds,
+                     Chance = chance)
+(tabela <- data.frame(lapply(tabela, function(x) format(x, digits = 5, nsmall = 4))))
+
+library(dplyr)
+library(reshape2)
+
+# Criando o dataframe dos resíduos
+dados_residuos <- data.frame(Diagnostico = tab7.12$Diagnostico, Tratamento = tab7.12$Tratamento, Pearson = residuos_p, Deviance = residuos_d)
+dados_residuos_melted <- melt(dados_residuos, id.vars = c("Diagnostico", "Tratamento"))
+
+ggplot(dados_residuos_melted, aes(x = Diagnostico, y = value, color = variable, shape = Tratamento)) +
+  geom_point(size = 4) +
+  labs(x = "Diagnostico", y = "Resíduos", color = "Tipo de Resíduo", shape = "Tratamento") +
+  ggtitle("Scatterplot dos Resíduos de Pearson e Deviance") +
+  theme_bw() +
+  theme(legend.position = c(0.1, 0.5), 
+        axis.text.x = element_text(size = 13),
+        legend.text = element_text(size = 13))
+```
+
+```{r tab7.18, echo=FALSE}
+tab7.18 <- data.frame(
+  smk = c(0, 0, 0, 0, 1, 1, 1, 1),
+  ses = c(1, 1, 0, 0, 1, 1, 0, 0),
+  idade = c(0, 1, 0, 1, 0, 1, 0, 1),
+  Sim = c(38, 48, 28, 40, 84, 102, 47, 59),
+  Não = c(73, 86, 67, 84, 89, 46, 96, 53),
+  Total = c(111, 134, 95, 124, 173, 148, 143, 112)
+)
+
+tab7.18$smk <- factor(tab7.18$smk, levels = c(0, 1), labels = c("não", "sim"))
+tab7.18$ses <- factor(tab7.18$ses, levels = c(0, 1), labels = c("baixo", "alto"))
+tab7.18$idade <- factor(tab7.18$idade, levels = c(0, 1), labels = c("< 40", "≥ 40"))
+
+tab7.18
+
+modelo1 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ 1, data = tab7.18, family = binomial)
+modelo2 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk, data = tab7.18, family = binomial)
+modelo3 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses, data = tab7.18, family = binomial)
+modelo4 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade, data = tab7.18, family = binomial)
+modelo5 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade + smk * ses, data = tab7.18, family = binomial)
+modelo6 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade, data = tab7.18, family = binomial)
+modelo7 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade + ses * idade, data = tab7.18, family = binomial)
+modelo8 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses * idade, data = tab7.18,family = binomial)
+
+# Comparação entre todos os modelos
+tab7.19 <- anova(modelo1, modelo2, modelo3, modelo4, modelo5, modelo6, modelo7, modelo8, test = "Chi")
+tab7.19$AIC <- c(AIC(modelo1), AIC(modelo2), AIC(modelo3), AIC(modelo4), AIC(modelo5), AIC(modelo6), AIC(modelo7), AIC(modelo8))
+tab7.19
+
+summary(modelo6)
+
+# MODELO FINAL
+# log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade
+
+residuos_pearson <- residuals(modelo6, type = "pearson")
+residuos_deviance <- residuals(modelo6, type = "deviance")
+dados_residuos <- data.frame(Residuos_Pearson = residuos_pearson, Residuos_Deviance = residuos_deviance)
+
+# Plotando os resíduos de Pearson
+ggplot(dados_residuos, aes(x = seq_along(Residuos_Pearson), y = Residuos_Pearson)) +
+  geom_point(size = 4) +
+  ylim(-.5, .5) +
+  labs(x = "Observações", y = "Resíduos de Pearson") +
+  ggtitle("Resíduos de Pearson do Modelo 6") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 14),
+        plot.title = element_text(size = 16, face = "bold"))
+
+# Plotando os resíduos de Deviance
+ggplot(dados_residuos, aes(x = seq_along(Residuos_Deviance), y = Residuos_Deviance)) +
+  geom_point(size = 4) +
+  ylim(-.5, .5) +
+  labs(x = "Observações", y = "Resíduos Deviance") +
+  ggtitle("Resíduos Deviance do Modelo 6") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 14),
+        plot.title = element_text(size = 16, face = "bold"))
+
+
+# MODELO FINAL
+# log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade
+
+# a razão de chances entre apresentar BRC quando smk = 0 (não fumante), ses = 0 (status socioeconomico alto) e idade = 0 (idade menor que 40 anos)
+exp(-0.8533)
+
+# a razão de chances entre os níveis de smk quando ses = 0 (alto) e idade = 0
+exp(0.1306)
+
+# a razão de chances entre os níveis de smk quando ses = 1 e idade = 1
+exp(0.1306 + 0.4859 + 0.7422)
+
+# a razão de chances entre os níveis de ses quando smk = 1 e idade = 1
+exp(0.1852 + 0.4859 + 0.7422)
+```
+
+```{r titanic, echo=FALSE}
+rm(list=objects())
+setwd("C:/Users/Samsung/OneDrive/UFSM/Disciplinas_UFSM/STC1093_Analise_Dados_Categoricos/2023")
+dados <- read.csv("titanic_coded.csv", h=T)
+str(dados)
+dados$class <- factor(dados$class, levels = c("1","2","3"), labels = c("1st class", "2nd class", "3rd class"))
+dados$age <- factor(dados$age, levels = c("0","1"), labels = c("Child", "Adults"))
+dados$sex <- factor(dados$sex, levels = c("0","1"), labels = c("Women", "Man"))
+dados$survived <- factor(dados$survived, levels = c("0","1"), labels = c("No", "Yes"))
+
+tabela <- xtabs(~ class + age + sex + survived, data = dados)
+str(tabela)
+tabela_final <- ftable(tabela, row.vars = c("class", "age", "sex"), col.vars = "survived")
+
+modelo1 <- glm(survived ~ 1, data = dados, family = binomial)
+modelo2 <- glm(survived ~ class, data = dados, family = binomial)
+modelo3 <- glm(survived ~ class + age, data = dados, family = binomial)
+modelo4 <- glm(survived ~ class + age + sex, data = dados, family = binomial)
+modelo5 <- glm(survived ~ class + age + sex + class*age, data = dados, family = binomial)
+modelo6 <- glm(survived ~ class + age + sex + class*age + class*sex, data = dados, family = binomial)
+modelo7 <- glm(survived ~ class + age + sex + class*age + class*sex + age*sex, data = dados, family = binomial)
+modelo8 <- glm(survived ~ class * age * sex, data = dados, family = binomial)
+
+result <- anova(modelo1, modelo2, modelo3, modelo4, modelo5, modelo6, modelo7, modelo8, test = "Chi")
+result$AIC <- c(AIC(modelo1), AIC(modelo2), AIC(modelo3), AIC(modelo4), AIC(modelo5), AIC(modelo6), AIC(modelo7), AIC(modelo8))
+result
+
+summary(modelo4)
+# log(odds) = 3.0619 - 1.0106 * class2nd class - 1.7664 * class3rd class - 1.0556 * ageAdults - 2.3695 * sexMan
+
+residuos_pearson <- residuals(modelo4, type = "pearson")
+residuos_deviance <- residuals(modelo4, type = "deviance")
+dados_residuos <- data.frame(Residuos_Pearson = residuos_pearson, Residuos_Deviance = residuos_deviance)
+
+# Plotando os resíduos de Pearson
+ggplot(dados_residuos, aes(x = seq_along(Residuos_Pearson), y = Residuos_Pearson)) +
+  geom_point(size = 1) +
+  ylim(-4, 4) +
+  labs(x = "Observações", y = "Resíduos de Pearson") +
+  ggtitle("Resíduos de Pearson do Modelo 4") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 14),
+        plot.title = element_text(size = 16, face = "bold"))
+
+# Plotando os resíduos de Deviance
+ggplot(dados_residuos, aes(x = seq_along(Residuos_Deviance), y = Residuos_Deviance)) +
+  geom_point(size = 1) +
+  ylim(-4, 4) +
+  labs(x = "Observações", y = "Resíduos Deviance") +
+  ggtitle("Resíduos Deviance do Modelo 4") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 13),
+        axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 14),
+        plot.title = element_text(size = 16, face = "bold"))
+
+tabela_final_df <- as.data.frame.matrix(tabela_final)
+colnames(tabela_final_df) <- c("No", "Yes")
+
+
+#Perguntas
+# 1. Crie um modelo de regressão logística para descobrir a probabilidade de sobrevivência dos tripulantes (variável dependente sobreviveu) em relação às variáveis class, age, sex. Utilize o comando summary com o modelo. Declare a significância estatística das variáveis.
+# 
+# 2. Com base na resposta anterior, disserte sobre a direção do sinal do log da probabilidade de sobrevivência com relação à cada variável independente do modelo. Quem estava na primeira classe tinha maiores chances de sobrevivência, ou na terceira? Adultos ou crianças tinham melhores chances de sobreviver, homens ou mulheres?
+# 
+# 3. Transforme os coeficientes encontrados em Razão de Chances (OR - Odds Ratio), bem como verifique os intervalos de confiança.
+# 
+# 4. Com base na resposta anterior, disserte sobre a razão das chances (OR) de cada variável independente do modelo.
+# 
+# 5. Efetue a predição da probabilidade de sobrevivência de uma tripulante do sexo feminino, adulta e que viajava na primeira classe do navio.
+# 
+# 6. Efetue a predição da probabilidade de sobrevivência de um tripulante do sexo masculino, adulto e que viajava na terceira classe do navio.
+```
+
+
