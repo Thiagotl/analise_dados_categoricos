@@ -2,14 +2,29 @@
 title: "Trabalho5"
 author: "Thiago Tavares Lopes"
 date: "2025-06-24"
-output: html_document
+output:
+  bookdown::html_document2
 ---
 
-```{r}
+```{r include=FALSE}
+
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(gtsummary)
+library(gt)
+library(ggplot2)
+library(kableExtra)
+
+```
+
+
+### Resultados tabela 7.7
+
+
+```{r, include=FALSE}
 
 # TABELA 7.7
-
-library(knitr)
 
 # Criar o dataframe com os dados
 dados <- data.frame(
@@ -26,8 +41,38 @@ format(round(dados$VO, 2), nsmall = 2)
 str(dados)
 
 # Exibir a tabela formatada
-(tabela_formatada <- kable(dados, 
-                          col.names = c("Sexo", "ECG", "Presente", "Ausente", "Total", "Proporção observada"), align = c("l", "l", "c", "c", "c", "c")))
+tabela_formatada <- kable(dados, 
+                          col.names = c("Sexo", "ECG", "Presente", "Ausente", "Total", "Proporção observada"), align = c("l", "l", "c", "c", "c", "c"))
+
+
+```
+
+
+Nesta seção são apresentados os resultados da análise dos modelos de regressão logística para os dados da tabela 7.7, que pode ser observada abaixo na Tabela \@ref(tab:tabela)
+
+
+```{r tabela, echo=FALSE,}
+
+dados |> 
+  kbl() |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+
+
+```
+
+
+
+Temos como modelo final $\log(\frac{\theta(x)}{1-\theta(x)})=-1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)$ que foi escolhido pelo resultados 
+
+
+
+
+
+
+```{r, include=FALSE}
+
 
 # Modelo 1: Apenas intercepto
 modelo1 <- glm(as.matrix(dados[,c(3,4)]) ~ 1, data = dados, family = binomial)
@@ -43,10 +88,15 @@ modelo4 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo * ECG, data = dados, family = bi
 
 summary(modelo1)
 summary(modelo2)
-summary(modelo3)
+resumo_mod3<-summary(modelo3) # melhor modelo
 summary(modelo4)
 
-(resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi"))
+resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi")
+
+resultado_anova <- as.data.frame(resultado_anova)
+
+View(resultado_anova)
+
 
 # MODELO FINAL
 # EV = -1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)
@@ -75,6 +125,17 @@ format(round(dados$VO, 2), nsmall = 2)
 
 
 ```
+
+
+
+```{r, echo=FALSE}
+tbl<-tbl_regression(modelo3)
+```
+
+
+
+
+
 
 
 
