@@ -48,7 +48,7 @@ tabela_formatada <- kable(dados,
 ```
 
 
-Nesta seção são apresentados os resultados da análise dos modelos de regressão logística para os dados da tabela 7.7, que pode ser observada abaixo na Tabela \@ref(tab:tabela)
+Nesta seção são apresentados os resultados da análise dos modelos de regressão logística para os dados da tabela 7.7, que pode ser observada abaixo na tabela abaixo.
 
 
 ```{r tabela, echo=FALSE,}
@@ -58,45 +58,94 @@ dados |>
   kable_classic(full_width = F, html_font = "Cambria")
 
 
+```
 
+\par
+
+Após o ajuste, temos como modelo final $\log(\frac{\theta(x)}{1-\theta(x)})=-1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)$ 
+
+
+```{r, echo=FALSE}
+#tbl_regression(modelo3)
+
+modelo3 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo + ECG, data = dados, family = binomial)
+
+tbl_regression(modelo3, intercept = TRUE) |> 
+  modify_header(label = "**Variável**") |> 
+  bold_labels() 
 
 ```
 
 
+**Interpretação dos Coeficientes Estimados**
 
-Temos como modelo final $\log(\frac{\theta(x)}{1-\theta(x)})=-1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)$ que foi escolhido pelo resultados 
 
+- Intercepto (`-1.1747`)
+O intercepto representa o logit da probabilidade de ocorrência do evento para **mulheres** (`Sexo = Feminino`) com **ECG normal** (categoria de referência). Convertendo o logit em probabilidade:
 
+$$
+\text{Probabilidade} = \frac{1}{1 + e^{-(-1.1747)}} \approx 0.236
+$$
+
+Assim, para mulheres com ECG normal, a probabilidade estimada de ocorrência do evento é de aproximadamente **23,6%**.
+
+#### Sexo Masculino (`1.2770`)
+Indivíduos do sexo **masculino** apresentam um aumento de 1.277 unidades no log-odds da ocorrência do evento em relação às mulheres, mantendo constante a condição do ECG. Convertendo esse valor para *odds ratio*:
+
+$$
+\text{OR} = e^{1.2770} \approx 3.59
+$$
+
+Ou seja, **homens têm 3,59 vezes mais chances** de ocorrência do evento do que mulheres, considerando ECG normal.
+
+- ECG ≥ 0,1 ST (`1.0545`)
+Pessoas com **alteração no ECG (≥ 0,1 ST)** têm um aumento de 1.0545 no log-odds da ocorrência do evento em relação a pessoas com ECG normal, mantendo constante o sexo. O *odds ratio* correspondente é:
+
+$$
+\text{OR} = e^{1.0545} \approx 2.87
+$$
+
+Assim, indivíduos com esse tipo de alteração no ECG têm **2,87 vezes mais chances** de ocorrência do evento do que aqueles com ECG normal, considerando o mesmo sexo.
+
+**Significância Estatística**
+Todos os coeficientes são estatisticamente significativos ao nível de 5%:
+
+- Sexo Masculino: *p* = 0.0103
+- ECG ≥ 0,1 ST: *p* = 0.0342
+- Intercepto: *p* = 0.0155
+
+**Qualidade do Ajuste**
+
+- **Null Deviance**: 11.98 — representa o desvio do modelo sem preditores.
+- **Residual Deviance**: 0.21 — representa o desvio do modelo ajustado.
+- A redução drástica sugere um bom ajuste do modelo.
+- **AIC**: 19.309 — útil para comparar com outros modelos (quanto menor, melhor).
 
 
 
 
 ```{r, include=FALSE}
 
-
 # Modelo 1: Apenas intercepto
-modelo1 <- glm(as.matrix(dados[,c(3,4)]) ~ 1, data = dados, family = binomial)
+#modelo1 <- glm(as.matrix(dados[,c(3,4)]) ~ 1, data = dados, family = binomial)
 
 # Modelo 2: Intercepto e Sexo
-modelo2 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo, data = dados, family = binomial)
+#modelo2 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo, data = dados, family = binomial)
 
 # Modelo 3: Intercepto, Sexo e ECG
-modelo3 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo + ECG, data = dados, family = binomial)
+#modelo3 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo + ECG, data = dados, family = binomial)
 
 # Modelo 3: Intercepto, Sexo e ECG
-modelo4 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo * ECG, data = dados, family = binomial)
+#modelo4 <- glm(as.matrix(dados[,c(3,4)]) ~ Sexo * ECG, data = dados, family = binomial)
 
-summary(modelo1)
-summary(modelo2)
-resumo_mod3<-summary(modelo3) # melhor modelo
-summary(modelo4)
+# summary(modelo1)
+# summary(modelo2)
+#summary(modelo3) # melhor modelo
+#summary(modelo4)
 
-resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi")
+#resultado_anova <- anova(modelo1, modelo2, modelo3, modelo4, test = "Chi")
 
-resultado_anova <- as.data.frame(resultado_anova)
-
-View(resultado_anova)
-
+#resultado_anova <- as.data.frame(resultado_anova)
 
 # MODELO FINAL
 # EV = -1.1747 + 1.2770 * (SexoMasculino) + 1.0545 * (ECG≥ 0,1 ST)
@@ -104,44 +153,34 @@ View(resultado_anova)
 # ECG≥ 0,1 ST = {0,1}
 
 # Modelo de regressão logística estimado (modelo3)
-ggplot(dados, aes(x = Sexo, y = VO, color = ECG)) +
-  geom_point(size = 4*0.75) +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +
-  labs(x = "Sexo", y = "Proporção observada", color = "ECG") +
-  ggtitle("Modelo de Regressão Logística Estimado") +
-  theme_bw() +
-  theme(legend.position = c(0.1, 0.7), 
-        axis.text.x = element_text(size = 13),
-        legend.text = element_text(size = 13))
-
-# Análise de resíduos do modelo final
-residuos_p <- residuals(modelo3, type = "pearson")
-residuos_d <- residuals(modelo3, type = "deviance")
-valor_predito <- predict(modelo3, type = "response")
-log_odds <- log(valor_predito / (1 - valor_predito))
-
-dados$VO <- dados$Presente / dados$Total #Valor observado de casos por categoria
-format(round(dados$VO, 2), nsmall = 2)
+# ggplot(dados, aes(x = Sexo, y = VO, color = ECG)) +
+#   geom_point(size = 4*0.75) +
+#   geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +
+#   labs(x = "Sexo", y = "Proporção observada", color = "ECG") +
+#   ggtitle("Modelo de Regressão Logística Estimado") +
+#   theme_bw() +
+#   theme(legend.position = c(0.1, 0.7), 
+#         axis.text.x = element_text(size = 13),
+#         legend.text = element_text(size = 13))
+# 
+# # Análise de resíduos do modelo final
+# residuos_p <- residuals(modelo3, type = "pearson")
+# residuos_d <- residuals(modelo3, type = "deviance")
+# valor_predito <- predict(modelo3, type = "response")
+# log_odds <- log(valor_predito / (1 - valor_predito))
+# 
+# dados$VO <- dados$Presente / dados$Total #Valor observado de casos por categoria
+# format(round(dados$VO, 2), nsmall = 2)
 
 
 ```
 
 
+### Resultados Tabela 7.12
+
+Nesta seção são apresentados os resultados da tabela 7.12. Os dados estão representaos na tabela abaixo
 
 ```{r, echo=FALSE}
-tbl<-tbl_regression(modelo3)
-```
-
-
-
-
-
-
-
-
-```{r}
-
-
 tab7.12 <- data.frame(
 "Diagnostico" = factor(c("Complicada", "Complicada", "Complicada", "Não complicada", "Não complicada", "Não complicada")),
 "Tratamento" = factor(c("A", "B", "C", "A", "B", "C")),
@@ -150,29 +189,106 @@ tab7.12 <- data.frame(
 "Total" = c(106, 112, 114, 45, 59, 40)
 )
 
+```
+
+
+```{r, echo=FALSE}
+tab7.12 |> 
+  kbl() |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+**Interpretação dos Coeficientes Estimados – Modelo com Interação**
+
+
+```{r, include=FALSE}
+
 tab7.12
 
 # Modelo 1: Apenas intercepto
-modelo1 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ 1, data = tab7.12, family = binomial)
+#modelo1 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ 1, data = tab7.12, family = binomial)
 
 # Modelo 2: Intercepto e Sexo
-modelo2 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico, data = tab7.12, family = binomial)
+#modelo2 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico, data = tab7.12, family = binomial)
 
 # Modelo 3: Intercepto, Sexo e ECG
-modelo3 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico + Tratamento, data = tab7.12, family = binomial)
+#modelo3 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico + Tratamento, data = tab7.12, family = binomial)
 
 # Modelo 3: Intercepto, Sexo e ECG
-modelo4 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico * Tratamento, data = tab7.12, family = binomial)
+modelo4.2 <- glm(as.matrix(tab7.12[,c(3,4)]) ~ Diagnostico * Tratamento, data = tab7.12, family = binomial)
 
-summary(modelo1)
-summary(modelo2)
-summary(modelo3)
-summary(modelo4)
+#summary(modelo1)
+#summary(modelo2)
+#summary(modelo3)
+summary(modelo4.2) #melhor modelo
 
 ```
 
 
-```{r}
+```{r, echo=FALSE}
+tbl_regression(modelo4.2, intercept = TRUE) |> 
+  modify_header(label = "**Variável**") |> 
+  bold_labels() 
+```
+
+A fórmula utilizada foi:
+
+```r
+glm(cbind(Sucessos, Fracassos) ~ Diagnostico * Tratamento, family = binomial)
+```
+- Intercepto (`1.0245`)
+O intercepto representa o logit da probabilidade de ocorrência do evento no grupo de referência, composto por indivíduos com **diagnóstico complicado** e submetidos ao **tratamento A**. A conversão para probabilidade é dada por:
+
+$$
+P = \frac{1}{1 + e^{-1.0245}} \approx 0.736
+$$
+
+Logo, a chance de ocorrência do evento nesse grupo é de aproximadamente **73,6%**.
+
+- Diagnóstico não complicada (`1.0549`)
+Indivíduos com **diagnóstico não complicada**, mantido o tratamento A, apresentam um aumento de 1.0549 na log-odds do evento em comparação com aqueles com diagnóstico complicado. Em termos de *odds ratio*:
+
+$$
+\text{OR} = e^{1.0549} \approx 2.87
+$$
+
+Ou seja, há um aumento de aproximadamente **187% nas chances** de ocorrência do evento nesse grupo, com significância estatística (*p* = 0.0437).
+
+- Tratamento B (`1.1927`)
+Pacientes com diagnóstico complicado tratados com **tratamento B** apresentam um aumento de 1.1927 na log-odds em relação ao tratamento A. O *odds ratio* é:
+
+$$
+\text{OR} = e^{1.1927} \approx 3.30
+$$
+
+Isso indica que o tratamento B, nesse grupo, está associado a **3,3 vezes mais chances** de ocorrência do evento em comparação ao tratamento A (*p* = 0.0020).
+
+- Tratamento C (`-0.6336`)
+Para indivíduos com diagnóstico complicado, o **tratamento C** está associado a uma redução na log-odds da ocorrência do evento. O *odds ratio*:
+
+$$
+\text{OR} = e^{-0.6336} \approx 0.53
+$$
+
+Portanto, há uma **redução de 47% nas chances** do evento, com significância estatística (*p* = 0.0297).
+
+- Interação: Diagnóstico não complicada * Tratamento B (`-0.8926`)
+Esse coeficiente avalia o efeito adicional do tratamento B **em indivíduos com diagnóstico não complicada**. Apesar do valor negativo, que sugeriria redução na log-odds, o resultado **não é estatisticamente significativo** (*p* = 0.246), o que limita a interpretação.
+
+- Interação: Diagnóstico não complicada * Tratamento C (`0.2888`)
+De forma semelhante, essa interação avalia o efeito adicional do tratamento C em indivíduos com diagnóstico não complicada. O resultado também **não é significativo** (*p* = 0.685), sugerindo que o efeito do tratamento C não difere significativamente entre os tipos de diagnóstico.
+
+- As variáveis `Diagnostico` e `Tratamento` têm efeito significativo sobre a resposta.
+- As interações entre `Diagnostico` e os tratamentos B e C **não apresentaram significância estatística**, indicando que os efeitos dos tratamentos são similares entre os níveis de diagnóstico.
+- A **deviance residual próxima de zero** e o **AIC = 36.423** indicam que o modelo se ajusta perfeitamente aos dados observados, o que é esperado dado o pequeno número de observações e a presença de todas as combinações possíveis no cruzamento dos fatores.
+
+
+### Resultados Tabela 7.18
+
+Nesta seção serão apresentados os resultado da tabelas 7.18 que se encontra abaixo:
+
+```{r, include=FALSE}
 tab7.18 <- data.frame(
   smk = c(0, 0, 0, 0, 1, 1, 1, 1),
   ses = c(1, 1, 0, 0, 1, 1, 0, 0),
@@ -186,26 +302,134 @@ tab7.18$smk <- factor(tab7.18$smk, levels = c(0, 1), labels = c("não", "sim"))
 tab7.18$ses <- factor(tab7.18$ses, levels = c(0, 1), labels = c("baixo", "alto"))
 tab7.18$idade <- factor(tab7.18$idade, levels = c(0, 1), labels = c("< 40", "≥ 40"))
 
-tab7.18
 
-modelo1 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ 1, data = tab7.18, family = binomial)
-modelo2 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk, data = tab7.18, family = binomial)
-modelo3 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses, data = tab7.18, family = binomial)
-modelo4 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade, data = tab7.18, family = binomial)
-modelo5 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade + smk * ses, data = tab7.18, family = binomial)
+```
+
+
+
+
+```{r}
+tab7.18 |> 
+  kbl() |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+Temos como modelo final $log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade$, com AIC de $53.704$, tepresentado na tabela abaixo.
+
+
+```{r, echo=FALSE}
+
 modelo6 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade, data = tab7.18, family = binomial)
-modelo7 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade + ses * idade, data = tab7.18, family = binomial)
-modelo8 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses * idade, data = tab7.18,family = binomial)
+
+tbl_regression(modelo6, intercept = TRUE) |> 
+  modify_header(label = "**Variável**") |> 
+  bold_labels() 
+
+```
+**Interpretação dos Coeficientes Estimados – Modelo com Interações**
+
+O modelo foi ajustado via regressão logística binomial, considerando como variável resposta os dados agregados de sucessos (`Sim`) e fracassos (`Não`). As variáveis explicativas incluem o tabagismo (`smk`), o nível socioeconômico (`ses`) e a idade (`idade`), incluindo interações entre tabagismo e os demais fatores.
+
+- Intercepto (`-0.8533`)
+O intercepto representa o **logit da probabilidade de ocorrência do evento (por exemplo, uma doença)** para o grupo de referência, composto por:
+- indivíduos **não fumantes** (`smk = não`),
+- com **baixa renda** (`ses = baixo`),
+- e **idade < 40 anos**.
+
+Convertendo para probabilidade:
+
+$$
+P = \frac{1}{1 + e^{-(-0.8533)}} \approx 0.298
+$$
+
+Ou seja, aproximadamente **29,8% de chance** de ocorrência do evento para o grupo de referência.
+
+
+
+**Efeitos principais:**
+
+- `smksim` (`0.1306`)
+Indivíduos **fumantes** apresentam um aumento de 0.1306 na log-odds da ocorrência do evento em relação aos não fumantes, no grupo com `ses = baixo` e `idade < 40`. Esse efeito **não é estatisticamente significativo** (*p* = 0.588), portanto **não há evidência de que fumar por si só aumente significativamente a chance do evento** nesse contexto.
+
+- `sesalto` (`0.1852`)
+Indivíduos com **alto nível socioeconômico** (vs. baixo), que são não fumantes e têm menos de 40 anos, apresentam um aumento de 0.1852 na log-odds, o que também **não é estatisticamente significativo** (*p* = 0.350).
+
+- `idade≥ 40` (`0.0973`)
+Pessoas com **40 anos ou mais**, não fumantes e com baixa renda, têm um ligeiro aumento na log-odds da ocorrência do evento em relação aos mais jovens. **Esse efeito isolado também não é significativo** (*p* = 0.625).
+
+**Interações:**
+
+- `smksim:sesalto` (`0.4859`)
+A interação entre **tabagismo e alto nível socioeconômico** sugere que, **para fumantes**, o efeito de ter alta renda **é maior** em relação a não fumantes. A *odds ratio* para essa interação é:
+
+$$
+e^{0.4859} \approx 1.63
+$$
+
+Ou seja, fumantes com alta renda têm **1,63 vezes mais chance** de ocorrência do evento comparado à categoria de referência. Esse efeito é **marginalmente significativo** (*p* = 0.065), indicando uma possível associação.
+
+- `smksim:idade≥ 40` (`0.7422`)
+Essa interação indica que, entre fumantes, ter **40 anos ou mais** **aumenta significativamente** a chance de ocorrência do evento. A *odds ratio* é:
+
+$$
+e^{0.7422} \approx 2.10
+$$
+
+Portanto, fumantes com 40 anos ou mais têm **2,1 vezes mais chance** de apresentar o evento do que fumantes mais jovens, com significância estatística (*p* = 0.005).
+
+- Considerações sobre o modelo:
+
+- **Todos os efeitos principais são não significativos**, mas as interações — especialmente entre tabagismo e idade — mostraram impacto importante.
+- O modelo possui excelente ajuste aos dados: a **deviança residual é praticamente nula** (0.0319 com 2 graus de liberdade), o que indica que o modelo se ajusta quase perfeitamente.
+- O **AIC = 53.704** é útil para comparação com modelos aninhados.
+
+- Conclusão
+
+Embora os efeitos principais isolados de `smk`, `ses` e `idade` não sejam estatisticamente significativos, a interação entre **tabagismo e idade ≥ 40 anos** é altamente significativa, indicando que **os riscos aumentam substancialmente para fumantes mais velhos**. Há também uma sugestão de efeito interativo entre tabagismo e renda, que pode ser relevante em análises com maior poder estatístico.
+
+
+
+```{r, include=FALSE}
+
+# modelo1 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ 1, data = tab7.18, family = binomial)
+# modelo2 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk, data = tab7.18, family = binomial)
+# modelo3 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses, data = tab7.18, family = binomial)
+# modelo4 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade, data = tab7.18, family = binomial)
+# modelo5 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk + ses + idade + smk * ses, data = tab7.18, family = binomial)
+#modelo6 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade, data = tab7.18, family = binomial)
+# modelo7 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses + smk * idade + ses * idade, data = tab7.18, family = binomial)
+# modelo8 <- glm(as.matrix(tab7.18[, c("Sim", "Não")]) ~ smk * ses * idade, data = tab7.18,family = binomial)
 
 # Comparação entre todos os modelos
-tab7.19 <- anova(modelo1, modelo2, modelo3, modelo4, modelo5, modelo6, modelo7, modelo8, test = "Chi")
-tab7.19$AIC <- c(AIC(modelo1), AIC(modelo2), AIC(modelo3), AIC(modelo4), AIC(modelo5), AIC(modelo6), AIC(modelo7), AIC(modelo8))
-tab7.19
+# tab7.19 <- anova(modelo1, modelo2, modelo3, modelo4, modelo5, modelo6, modelo7, modelo8, test = "Chi")
+# tab7.19$AIC <- c(AIC(modelo1), AIC(modelo2), AIC(modelo3), AIC(modelo4), AIC(modelo5), AIC(modelo6), AIC(modelo7), AIC(modelo8))
+# tab7.19
 
-summary(modelo6)
+#summary(modelo6)
 
 # MODELO FINAL
 # log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade
+
+# MODELO FINAL
+# log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade
+
+# a razão de chances entre apresentar BRC quando smk = 0 (não fumante), ses = 0 (status socioeconomico alto) e idade = 0 (idade menor que 40 anos)
+#exp(-0.8533)
+
+# a razão de chances entre os níveis de smk quando ses = 0 (alto) e idade = 0
+#exp(0.1306)
+
+# a razão de chances entre os níveis de smk quando ses = 1 e idade = 1
+#exp(0.1306 + 0.4859 + 0.7422)
+
+# a razão de chances entre os níveis de ses quando smk = 1 e idade = 1
+#exp(0.1852 + 0.4859 + 0.7422)
+```
+
+- Gráfico dos Resíduos
+
+```{r, echo=FALSE}
 
 residuos_pearson <- residuals(modelo6, type = "pearson")
 residuos_deviance <- residuals(modelo6, type = "deviance")
@@ -234,21 +458,5 @@ ggplot(dados_residuos, aes(x = seq_along(Residuos_Deviance), y = Residuos_Devian
         axis.text.y = element_text(size = 13),
         axis.title = element_text(size = 14),
         plot.title = element_text(size = 16, face = "bold"))
-
-
-# MODELO FINAL
-# log(odds) = -0.8533 + 0.1306 * smk + 0.1852 * ses + 0.0973 * idade + 0.4859 * smk * ses + 0.7422 * smk * idade
-
-# a razão de chances entre apresentar BRC quando smk = 0 (não fumante), ses = 0 (status socioeconomico alto) e idade = 0 (idade menor que 40 anos)
-exp(-0.8533)
-
-# a razão de chances entre os níveis de smk quando ses = 0 (alto) e idade = 0
-exp(0.1306)
-
-# a razão de chances entre os níveis de smk quando ses = 1 e idade = 1
-exp(0.1306 + 0.4859 + 0.7422)
-
-# a razão de chances entre os níveis de ses quando smk = 1 e idade = 1
-exp(0.1852 + 0.4859 + 0.7422)
 ```
 
