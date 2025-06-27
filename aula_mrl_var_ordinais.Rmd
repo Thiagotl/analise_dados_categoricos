@@ -1,0 +1,717 @@
+---
+title: "MRL para variáveis ordinais"
+author: "Denis Altieri"
+date: "2023-06-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Modelo logitos cumulativos
+### Tabela 8.6 - Apresentação dos dados do exemplo sobre artrite
+```{r tab8.6, echo=FALSE}
+#rm(list=objects())
+
+dados_p <- data.frame(
+  Sexo = c(0,0,1,1),
+  Tratamento = c(1,0,1,0),
+  Acentuada = c(0.5926, 0.1875, 0.3571, 0.0909),
+  Alguma = c(0.1852, 0.2188, 0.1429, 0.0909),
+  Nenhuma = c(0.2222, 0.5938, 0.5, 0.8182),
+  Totais = c(1, 1, 1, 1)
+)
+
+dados_p$Sexo <- factor(dados_p$Sexo, levels = c("0","1"), labels = c("Feminino", "Masculino"))
+dados_p$Tratamento <- factor(dados_p$Tratamento, levels = c("1","0"), labels = c("A", "Placebo"))
+dados_p
+
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+
+dados_melt <- melt(dados_p[,c(1:5)], id.vars = c("Sexo", "Tratamento"))
+dados_melt <- rename(dados_melt, Melhora = variable)
+dados_melt <- rename(dados_melt, Proporcao = value)
+dados_feminino <- subset(dados_melt, Sexo == "Feminino")
+dados_masculino <- subset(dados_melt, Sexo == "Masculino")
+
+plot_grafico <- function(dados) {
+  grafico_t <- ggplot(dados, aes(x = Tratamento, y = Proporcao, fill = Melhora)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(x = "Tratamento", y = "Proporção de casos", fill = "Grau de Melhora") +
+    scale_fill_manual(values = c("Acentuada" = "gray30", "Alguma" = "gray50", "Nenhuma" = "gray70"))  +
+    ggtitle(paste("Sexo", unique(dados$Sexo))) +
+    theme_bw() +
+    geom_text(aes(label = paste0(round(Proporcao * 100), "%")), position = position_dodge(width = 0.9), vjust = -0.5) + 
+    ylim(0,1) +
+    theme(legend.position = c(0.1, 0.8),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(),
+          axis.ticks = element_line(colour = "black"))
+  
+print(grafico_t)
+}
+
+plot_grafico(dados_feminino)
+plot_grafico(dados_masculino)
+
+```
+
+## Ajuste e seleção do modelo logitos cumulativos
+### Tab. 8.6 - Dores de artrite
+```{r tab8.6, echo=FALSE}
+
+dados <- data.frame(
+  Sexo = c(1,1,0,0),
+  Tratamento = c(0,1,0,1),
+  Acentuada = c(16, 6, 5, 1),
+  Alguma = c(5, 7, 2, 1),
+  Nenhuma = c(6, 19, 7, 9),
+  Totais = c(27, 32, 14, 11)
+)
+
+dados$Sexo <- factor(dados$Sexo, levels = c("0","1"), labels = c("Masculino","Feminino"))
+dados$Tratamento <- factor(dados$Tratamento, levels = c("1","0"), labels = c("Placebo","A"))
+
+library(VGAM)
+# Modelos com somente SEXO
+# Modelo chances não proporcionais
+mcnp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo,
+             cumulative(parallel=FALSE,reverse=FALSE), dados)
+
+# Modelo de chances proporcionais
+mcp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+
+round(coef(mcnp, matrix = TRUE), digits = 3)
+round(coef(mcp, matrix = TRUE), digits = 3)
+
+# Comparação dos modelos
+TRV <- 2*(logLik(mcnp) - logLik(mcp))
+gl <- length(coef(mcnp)) - length(coef(mcp))
+p <- 1-pchisq(TRV,gl)
+cbind(TRV, gl, p)
+
+# ou
+#TRV<- deviance(mcp)-deviance(mcnp)
+#gl <- df.residual(mcp)-df.residual(mcnp)       
+#p  <- 1-pchisq(TRV,gl)
+#cbind(TRV, gl, p)
+# ou
+lrtest(mcnp, mcp)
+
+# Modelos com somente TRATAMENTO
+
+# Modelo chances não proporcionais
+mcnp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Tratamento,
+             cumulative(parallel=FALSE,reverse=FALSE), dados)
+
+# Modelo de chances proporcionais
+mcp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Tratamento,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+
+coef(mcnp, matrix = TRUE)
+coef(mcp, matrix = TRUE)
+
+# Comparação dos modelos
+TRV <- 2*(logLik(mcnp) - logLik(mcp))
+gl <- length(coef(mcnp)) - length(coef(mcp))
+p <- 1-pchisq(TRV,gl)
+cbind(TRV, gl, p)
+
+lrtest(mcnp, mcp)
+
+# SEXO E TRATAMENTO
+# Modelo chances não proporcionais
+mcnp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo + Tratamento,
+             cumulative(parallel=FALSE,reverse=FALSE), dados)
+
+# Modelo de chances proporcionais
+mcp <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo + Tratamento,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+round(coef(mcnp, matrix = TRUE), digits = 3)
+round(coef(mcp, matrix = TRUE), digits = 3)
+
+# Comparação dos modelos
+TRV <- 2*(logLik(mcnp) - logLik(mcp))
+gl <- length(coef(mcnp)) - length(coef(mcp))
+p <- 1-pchisq(TRV,gl)
+cbind(TRV, gl, p)
+
+lrtest(mcnp, mcp)
+
+# Adotando-se o MCP, vamos comparar os modelos de forma hierárquica
+mcp0 <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ 1,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+mcp1 <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+mcp2 <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ factor(Sexo) + factor(Tratamento),
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+mcp3 <- vglm(cbind(Acentuada,Alguma,Nenhuma) ~ Sexo*Tratamento,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+
+# GL = s(r-1)-p; s = 4 (nro combinações de X); r = 3 (nro categorias de Y)
+GL_ <- as.numeric(c(8-length(coef(mcp0)),
+         8-length(coef(mcp1)),
+         8-length(coef(mcp2)),
+         8-length(coef(mcp3))))
+Deviance_ <- round(as.numeric(c(deviance(mcp0),
+               deviance(mcp1),
+               deviance(mcp2),
+               deviance(mcp3))), digits = 2)
+TRV_ <- round(as.numeric(c(NA,
+         deviance(mcp0)-deviance(mcp1),
+         deviance(mcp1)-deviance(mcp2),
+         deviance(mcp2)-deviance(mcp3))), digits = 2)
+AIC_ <- round(as.numeric(c(AIC(mcp0),AIC(mcp1),AIC(mcp2),AIC(mcp3))), digits = 2)
+Dif_ <- as.numeric(c(NA,
+           df.residual(mcp0)-df.residual(mcp1),
+           df.residual(mcp1)-df.residual(mcp2),
+           df.residual(mcp2)-df.residual(mcp3)))
+
+P_v  <- round(as.numeric(c(NA,
+         1-pchisq(TRV_[2],Dif_[2]),
+         1-pchisq(TRV_[3],Dif_[3]),
+         1-pchisq(TRV_[4],Dif_[4]))), digits = 3)
+
+tab8.7 <- round(cbind(GL_, Deviance_, TRV_, Dif_, P_v, AIC_), digits = 4)
+colnames(tab8.7) <- c("GL", "Deviance", "TRV", "Dif", "P-v", "AIC")
+rownames(tab8.7) <- c("Nulo", "X1", "X2|X1", "X1*X2|X1,X2")
+tab8.7
+
+# Tabela 8.8
+summary(mcp2)
+
+mcp2@y # Probabilidades observadas
+fitted(mcp2) # Probabilidades preditas
+mcp2@y - fitted(mcp2) # Observadas - preditas
+   
+
+# Probabilidades observadas
+prob_obs <- dados[, c("Acentuada", "Alguma", "Nenhuma")] / dados[, "Totais"] # Probabilidades observadas
+(prob_obs <- melt(t(prob_obs)))
+
+# Probabilidades preditas
+prob_pred <- predict(mcp2, type = "response") # Probabilidades preditas
+prob_pred <- prob_pred[,c("Acentuada", "Alguma", "Nenhuma")]
+prob_pred <- melt(t(prob_pred))
+
+# Probabilidades observadas, preditas e diferença
+tab8.9 <- round(cbind(prob_obs[,3],prob_pred[,3],prob_obs[,3]-prob_pred[,3]), digits = 4)
+colnames(tab8.9) <- c("Observadas", "Preditas", "Observadas - Preditas")
+rownames(tab8.9) <- c(rep("", nrow(tab8.9)))
+tab8.9
+
+# Análise de resíduos
+residuos <- residuals(mcp2, type = "pearson")
+data <- data.frame(Residuos = c(residuos[,1], residuos[,2]), Observacao = rep(1:length(residuos), 2))
+
+ggplot(data, aes(x = Observacao, y = Residuos)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Resíduos de Pearson", title = "Resíduos do Modelo MCP2") +
+  scale_x_continuous(breaks = 1:length(residuos)) + ylim(-3, 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+
+#Logit for P[Y <= 1]:
+#logit(P[Y <= 1]) = −2.4234 + 1.1121 (Sexo = Feminino) + 1.6738 (Tratamento = A)
+
+#Logit for P[Y <= 2]:
+#logit(P[Y <= 2]) = −1.5333 + 1.1121 (Sexo = Feminino) +1.6738 (Tratamento = A)
+# P[Y <= 1]
+logit_p1 <- function(SexoFeminino, TratamentoA) {
+  -2.4234 + 1.1121 * SexoFeminino + 1.6738 * TratamentoA
+}
+
+p11 <- exp(logit_p1(1, 1)) / (1 + exp(logit_p1(1, 1)))
+p12 <- exp(logit_p1(1, 0)) / (1 + exp(logit_p1(1, 0)))
+p13 <- exp(logit_p1(0, 1)) / (1 + exp(logit_p1(0, 1)))
+p14 <- exp(logit_p1(0, 0)) / (1 + exp(logit_p1(0, 0)))
+T1 <- c(p11,p12,p13,p14)
+
+# P[Y <= 2]
+logit_p2 <- function(SexoFeminino, TratamentoA) {
+  -1.5333 + 1.1121 * SexoFeminino + 1.6738 * TratamentoA
+}
+
+p21 <- exp(logit_p2(1, 1)) / (1 + exp(logit_p2(1, 1)))
+p22 <- exp(logit_p2(1, 0)) / (1 + exp(logit_p2(1, 0)))
+p23 <- exp(logit_p2(0, 1)) / (1 + exp(logit_p2(0, 1)))
+p24 <- exp(logit_p2(0, 0)) / (1 + exp(logit_p2(0, 0)))
+T2 <- c(p21,p22,p23,p24)
+
+tab8.10 <- round(cbind(T1,T2,T1,T2-T1,1-T2), digits = 4)
+colnames(tab8.10) <- c("T1(X)", "T2(X)", "p1(X)", "p2(X)", "p3(X)")
+rownames(tab8.10) <- c("F - A", "F - P", "M - A", "M - P")
+ftable(tab8.10)
+```
+
+## Modelo logitos categorias adjacentes
+### Tabela 8.12 - Pacientes com artrite 
+```{r mlca, echo=FALSE}
+rm(list=objects())
+
+dados_p <- data.frame(
+  Tratamento = c(1,1,0,0),
+  Sexo = c(0,1,0,1),
+  RT = c(0.1953,0.1000,0.1600,0.1067),
+  RP = c(0.2344,0.2143,0.1520,0.1333),
+  NM = c(0.3594,0.5000,0.3520,0.2800),
+  PD = c(0.2109,0.1857,0.3360,0.4800),
+  Totais = c(1,1,1,1)
+)
+dados_p$Sexo <- factor(dados_p$Sexo, levels = c("0","1"), labels = c("Feminino", "Masculino"))
+dados_p$Tratamento <- factor(dados_p$Tratamento, levels = c("1","0"), labels = c("A", "B"))
+dados_p
+
+library(ggplot2)
+library(reshape2)
+
+dados_melt <- melt(dados_p[,c(1:6)], id.vars = c("Tratamento","Sexo"))
+dados_melt <- rename(dados_melt, Resposta = variable)
+dados_melt <- rename(dados_melt, Proporcao = value)
+dados_A <- subset(dados_melt, Tratamento == "A")
+dados_B <- subset(dados_melt, Tratamento == "B")
+
+
+plot_grafico <- function(dados) {
+  grafico_t <- ggplot(dados, aes(x = Sexo, y = Proporcao, fill = Resposta)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(x = "Tratamento", y = "Proporção de casos", fill = "Resposta") +
+    scale_fill_manual(values = c("RT" = "gray30", "RP" = "gray50", "NM" = "gray70", "PD" = "gray85"))  +
+    ggtitle(paste("Tratamento", unique(dados$Tratamento))) +
+    theme_bw() +
+    geom_text(aes(label = paste0(round(Proporcao * 100), "%")), position = position_dodge(width = 0.9), vjust = -0.5) + 
+    ylim(0,1) +
+    theme(legend.position = c(0.1, 0.8),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(),
+          axis.ticks = element_line(colour = "black"))
+  
+print(grafico_t)
+}
+
+plot_grafico(dados_A)
+plot_grafico(dados_B)
+```
+
+### Tabela 8.12 - Pacientes com artrite
+```{r tab8.12, echo=FALSE}
+rm(list=objects())
+
+dados <- data.frame(
+  Tratamento = c(0,0,1,1),
+  Sexo = c(1,0,1,0),
+  RT = c(25,7,20,8),
+  RP = c(30,15,19,10),
+  NM = c(46,35,44,21),
+  PD = c(27,13,42,36),
+  Totais = c(128,70,125,75)
+)
+
+dados$Tratamento <- factor(dados$Tratamento, levels = c("0","1"), labels = c("A", "B"))
+dados$Sexo <- factor(dados$Sexo, levels = c("0","1"), labels = c("Feminino","Masculino"))
+dados
+
+# Ajuste do modelo de chances proporcionais (mlca_p) e não proporcionais (mlca_np)
+mlca_np <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento + Sexo, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento + Sexo, family=acat(reverse=T,parallel=F), dados)
+
+coef(mlca_np, matrix = TRUE)
+coef(mlca_p, matrix = TRUE)
+
+lrtest(mlca_p,mlca_np)
+# com p = 0.06 é rejeitado ao nível alfa = 0.1 que todos os coeficientes possam assumir 
+# chances proporcionais
+
+# Comparação dos modelos apenas para X1 (Tratamento)
+mlca_np <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento, family=acat(reverse=T,parallel=F), dados)
+lrtest(mlca_p,mlca_np)
+# com p = 0.013, a hipótese de chances proporcionais é rejeitada.
+
+# Comparação dos modelos apenas para X2 (Sexo)
+mlca_np <- vglm(cbind(RT,RP,NM,PD) ~ Sexo, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(RT,RP,NM,PD) ~ Sexo, family=acat(reverse=T,parallel=F), dados)
+lrtest(mlca_p,mlca_np)
+# com p = 0.851, a hipótese de chances proporcionais não é rejeitada.
+# conclui-se que deve ser usado o modelo de chances proporcionais parciais
+
+# Ajuste do modelo de chances proporcinais parciais
+mca0 <- vglm(cbind(RT,RP,NM,PD) ~ 1, acat(parallel=F ~ Tratamento, reverse=T), dados)
+mca1 <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento, acat(parallel=F ~ Tratamento, reverse=T), dados)
+mca2 <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento + Sexo, acat(parallel=F ~ Tratamento, reverse=T), dados)
+mca3 <- vglm(cbind(RT,RP,NM,PD) ~ Tratamento * Sexo, acat(parallel=F ~ Tratamento, reverse=T), dados)
+
+# GL = s(r-1)-p; s = 4 (nro combinações de X); r = 4 (nro categorias de Y)
+GL_ <- as.numeric(c(12-length(coef(mca0)),
+         12-length(coef(mca1)),
+         12-length(coef(mca2)),
+         12-length(coef(mca3))))
+
+Deviance_ <- round(as.numeric(c(deviance(mca0),
+               deviance(mca1),
+               deviance(mca2),
+               deviance(mca3))), digits = 3)
+
+TRV_ <- round(as.numeric(c(NA,
+         deviance(mca0)-deviance(mca1),
+         deviance(mca1)-deviance(mca2),
+         deviance(mca2)-deviance(mca3))), digits = 3)
+
+AIC_ <- round(as.numeric(c(AIC(mca0),AIC(mca1),AIC(mca2),AIC(mca3))), digits = 2)
+
+Dif_ <- as.numeric(c(NA,
+           df.residual(mca0)-df.residual(mca1),
+           df.residual(mca1)-df.residual(mca2),
+           df.residual(mca2)-df.residual(mca3)))
+
+P_v  <- round(as.numeric(c(NA,
+         1-pchisq(TRV_[2],Dif_[2]),
+         1-pchisq(TRV_[3],Dif_[3]),
+         1-pchisq(TRV_[4],Dif_[4]))), digits = 3)
+
+tab8.13 <- cbind(GL_, Deviance_, TRV_, Dif_, P_v, AIC_)
+colnames(tab8.13) <- c("GL", "Deviance", "TRV", "Dif", "P-v", "AIC")
+rownames(tab8.13) <- c("Nulo", "X1", "X2|X1", "X1*X2|X1,X2")
+tab8.13
+
+# Pelo análise da tabela 8.13, o modelo com apenas os efeitos principais das covariáves é o selecionado (mca2)
+summary(mca2)
+
+# Estimativas dos parâmetros
+tab8.14 <- round(coef(mca2, matrix = TRUE), digits = 3)
+ftable(tab8.14)
+
+mca2@y # probabilidades observadas
+
+tab8.15 <- round(fitted(mca2), digits = 4) # probabilidades preditas (Tab8.15)
+colnames(tab8.15) <- c("p1(X)", "p2(X)", "p3(X)", "p4(X)")
+rownames(tab8.15) <- c("A  M", "A  F", "B  M", "B  F")
+ftable(tab8.15)
+
+dif_prob <- mca2@y - fitted(mca2) # diferença
+dif_melt <- melt(dif_prob)
+dif_melt$Var1 <- seq(1:16)
+
+ggplot(dif_melt, aes(x = Var1, y = value)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Prob. Obs. - Prob. Pred.", title = "Diferença entre probabilidades observadas e preditas") +
+  scale_x_continuous(breaks = seq(1:16)) + ylim(-0.5, 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+
+
+# Análise de resíduos
+residuos <- residuals(mca2, type = "pearson")
+data <- data.frame(Residuos = c(residuos[,1], residuos[,2], residuos[,3]))
+data$Observacao <- seq(1:12)
+ggplot(data, aes(x = Observacao, y = Residuos)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Resíduos de Pearson", title = "Resíduos do Modelo MCA2") +
+  scale_x_continuous(breaks = 1:length(residuos)) + ylim(-3, 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+
+
+#Logit for P[(Y=1)/(Y=2)]:
+#logit(P[(Y=1)/(Y=2)]) = −0.502 + 0.307 (Trat = B) + 0.228 (Sexo = M)
+
+#Logit for P[(Y=2)/(Y=3)]:
+#logit(P[(Y=2)/(Y=3)]) = −0.737 - 0.218 (Trat = B) + 0.228 (Sexo = M)
+
+#Logit for P[(Y=3)/(Y=4)]:
+#logit(P[(Y=2)/(Y=3)]) = 0.568 - 0.887 (Trat = B) + 0.228 (Sexo = M)
+
+# P[(Y=1)/(Y=2)]
+explogit_p1 <- function(Tratamento,Sexo) {
+  exp(-0.502 + 0.307 * Tratamento + 0.228 * Sexo)
+}
+
+p11 <- explogit_p1(0, 1)
+p12 <- explogit_p1(0, 0)
+p13 <- explogit_p1(1, 1)
+p14 <- explogit_p1(1, 0)
+(p1 <- c(p11,p12,p13,p14))
+
+# P[(Y=2)/(Y=3)]
+explogit_p2 <- function(Tratamento,Sexo) {
+  exp(-0.737 - 0.218 * Tratamento + 0.228 * Sexo)
+}
+
+p21 <- explogit_p2(0, 1) 
+p22 <- explogit_p2(0, 0)
+p23 <- explogit_p2(1, 1)
+p24 <- explogit_p2(1, 0)
+p2 <- c(p21,p22,p23,p24)
+
+# P[(Y=3)/(Y=4)]
+explogit_p3 <- function(Tratamento,Sexo) {
+  exp(0.568 - 0.887 * Tratamento + 0.228 * Sexo)
+}
+
+p31 <- explogit_p3(0, 1)
+p32 <- explogit_p3(0, 0)
+p33 <- explogit_p3(1, 1)
+p34 <- explogit_p3(1, 0)
+p3 <- c(p31,p32,p33,p34)
+
+# Chance de ocorrência da categoria j em relação a j+1
+tab8.16 <- round(cbind(p1,p2,p3), digits = 2)
+colnames(tab8.16) <- c("p_1(X)/p_2(X)", "p_2(X)/p_3(X)", "p_3(X)/p_4(X)")
+rownames(tab8.16) <- c("A  M", "A  F", "B  M", "B  F")
+ftable(tab8.16)
+
+```
+
+```{r plot_tab8.17, echo=FALSE}
+rm(list=objects())
+
+dados <- data.frame(
+  Sexo = c(0, 0, 1, 1),
+  Metodo = c(0, 1, 0, 1),
+  Intoleravel = c(0.0135, 0.0255, 0.0090, 0.0180),
+  Intensa = c(0.0285, 0.0495, 0.0135, 0.0240),
+  Moderada = c(0.0315, 0.0556, 0.0195, 0.0375),
+  Fraca = c(0.1214, 0.2012, 0.0795, 0.1289),
+  Ausente = c(0.8051, 0.6682, 0.8786, 0.7916),
+  Totais = c(1, 1, 1, 1)
+)
+
+dados$Sexo <- factor(dados$Sexo, levels = c("0","1"), labels = c("Feminino","Masculino"))
+dados$Metodo <- factor(dados$Metodo, levels = c("0","1"), labels = c("A", "B"))
+
+dados_melt <- melt(dados[,c(1:7)], id.vars = c("Sexo", "Metodo"))
+dados_melt <- rename(dados_melt, Resposta = variable)
+dados_melt <- rename(dados_melt, Proporcao = value)
+dados_F <- subset(dados_melt, Sexo == "Feminino")
+dados_M <- subset(dados_melt, Sexo == "Masculino")
+
+
+plot_grafico <- function(dados) {
+  grafico_t <- ggplot(dados, aes(x = Metodo, y = Proporcao, fill = Resposta)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(x = "Método", y = "Proporção de casos", fill = "Resposta") +
+    scale_fill_manual(values = c("Intolerável" = "gray10", 
+                                 "Intensa" = "gray25", 
+                                 "Moderada" = "gray50", 
+                                 "Fraca" = "gray75", 
+                                 "Ausente" = "gray90"))  +
+    ggtitle(paste("Sexo", unique(dados$Sexo))) +
+    theme_bw() +
+    geom_text(aes(label = paste0(round(Proporcao * 100), "%")), position = position_dodge(width = 0.9), vjust = -0.5) + 
+    ylim(0,1) +
+    theme(legend.position = c(0.1, 0.8),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          axis.line = element_line(),
+          axis.ticks = element_line(colour = "black"))
+  
+print(grafico_t)
+}
+
+plot_grafico(dados_F)
+plot_grafico(dados_M)
+```
+
+```{r}
+rm(list=objects())
+
+dados <- data.frame(
+  Sexo = c(0, 0, 1, 1),
+  Metodo = c(0, 1, 0, 1),
+  c1 = c(9, 17, 6, 12),
+  c2 = c(19, 33, 9, 16),
+  c3 = c(21, 37, 13, 25),
+  c4 = c(81, 134, 53, 86),
+  c5 = c(537, 445, 586, 528),
+  Totais = c(667, 666, 667, 667)
+)
+
+
+rotulos <- c("Sexo", "Metodo", "Intoleravel", "Intensa", "Moderada", "Fraca", "Ausente", "Totais")
+for (i in 1:length(rotulos)) {
+  attr(dados[[i]], "label") <- rotulos[i]
+}
+dados$Sexo <- factor(dados$Sexo, levels = c("0","1"), labels = c("Feminino","Masculino"))
+dados$Metodo <- factor(dados$Metodo, levels = c("0","1"), labels = c("A", "B"))
+dados
+
+# Modelo com AMBAS as covariáveis: odds proporcionais vs odds não proporcionais
+mrc1 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo + Metodo, family=cratio(reverse=F,parallel=T), dados)
+mrc2 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo + Metodo, family=cratio(reverse=F,parallel=F), dados)
+lrtest(mrc1,mrc2)
+
+# Modelo com a covariável Sexo: odds proporcionais vs odds não proporcionais
+mrc1 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo, family=cratio(reverse=F,parallel=T), dados)
+mrc2 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo, family=cratio(reverse=F,parallel=F), dados)
+lrtest(mrc1,mrc2)
+
+# Modelo com a covariável Metodo: odds proporcionais vs odds não proporcionais
+mrc1 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Metodo, family=cratio(reverse=F,parallel=T), dados)
+mrc2 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Metodo, family=cratio(reverse=F,parallel=F), dados)
+lrtest(mrc1,mrc2)
+
+# Modelos hierárquicos: odds proporcionais
+mrc0 <- vglm(cbind(c1,c2,c3,c4,c5) ~ 1, family=cratio(reverse=F,parallel=T), dados)
+mrc1 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo, family=cratio(reverse=F,parallel=T), dados)
+mrc2 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo + Metodo, family=cratio(reverse=F,parallel=T), dados)
+mrc3 <- vglm(cbind(c1,c2,c3,c4,c5) ~ Sexo * Metodo, family=cratio(reverse=F,parallel=T), dados)
+
+# GL = s(r-1)-p; s = 4 (nro combinações de X); r = 5 (nro categorias de Y)
+GL_ <- as.numeric(c(16-length(coef(mrc0)),
+         16-length(coef(mrc1)),
+         16-length(coef(mrc2)),
+         16-length(coef(mrc3))))
+
+Deviance_ <- round(as.numeric(c(deviance(mrc0),
+               deviance(mrc1),
+               deviance(mrc2),
+               deviance(mrc3))), digits = 3)
+
+TRV_ <- round(as.numeric(c(NA,
+         deviance(mrc0)-deviance(mrc1),
+         deviance(mrc1)-deviance(mrc2),
+         deviance(mrc2)-deviance(mrc3))), digits = 3)
+
+AIC_ <- round(as.numeric(c(AIC(mrc0),AIC(mrc1),AIC(mrc2),AIC(mrc3))), digits = 2)
+
+Dif_ <- as.numeric(c(NA,
+           df.residual(mrc0)-df.residual(mrc1),
+           df.residual(mrc1)-df.residual(mrc2),
+           df.residual(mrc2)-df.residual(mrc3)))
+
+P_v  <- round(as.numeric(c(NA,
+         1-pchisq(TRV_[2],Dif_[2]),
+         1-pchisq(TRV_[3],Dif_[3]),
+         1-pchisq(TRV_[4],Dif_[4]))), digits = 4)
+
+# Comparação de modelos
+tab8.18 <- cbind(GL_, Deviance_, TRV_, Dif_, P_v, AIC_)
+colnames(tab8.18) <- c("GL", "Deviance", "TRV", "Dif", "P-v", "AIC")
+rownames(tab8.18) <- c("Nulo", "X1", "X2|X1", "X1*X2|X1,X2")
+tab8.18
+
+# Tabela 8.19 - Erro-padrão e coeficientes do modelo 
+coeficients <- coef(summary(mrc2))[, "Estimate"]
+standard_errors <- coef(summary(mrc2))[, "Std. Error"]
+tab8.19 <- cbind(coeficients, standard_errors)
+colnames(tab8.19) <- c("Coeficiente", "Erro-padrao")
+tab8.19
+
+# Valores preditos pelo modelo
+tab8.20 <- round(fitted(mrc2), digits = 4)
+colnames(tab8.20) <- c("p1(X)", "p2(X)", "p3(X)", "p4(X)", "p5(X)")
+rownames(tab8.20) <- c("F  A", "F  B", "M  A", "M  B")
+ftable(tab8.20)
+
+dif_prob <- mrc2@y - fitted(mrc2) # diferença
+dif_melt <- melt(dif_prob)
+dif_melt$Var1 <- seq(1:20)
+
+ggplot(dif_melt, aes(x = Var1, y = value)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Prob. Obs. - Prob. Pred.", title = "Diferença entre probabilidades observadas e preditas") +
+  scale_x_continuous(breaks = seq(1:16)) + ylim(-0.05, 0.05) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+
+
+# Análise de resíduos
+residuos <- residuals(mrc2, type = "pearson")
+data <- data.frame(Residuos = c(residuos[,1], residuos[,2], residuos[,3], residuos[,4]))
+data$Observacao <- seq(1:16)
+ggplot(data, aes(x = Observacao, y = Residuos)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Resíduos de Pearson", title = "Resíduos do Modelo MCA2") +
+  scale_x_continuous(breaks = 1:length(residuos)) + ylim(-3, 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+
+
+#Logit for P[(Y=1)/(Y>1)]:
+#logit(P[(Y=1)/(Y>1)]) = -4.2143171 -0.5649653 (Sexo = M) +0.6436759 (Metodo = B)
+
+#Logit for P[(Y=2)/(Y>2)]:
+#logit(P[(Y=2)/(Y>2)]) = -3.6200068 -0.5649653 (Sexo = M) +0.6436759 (Metodo = B)
+
+#Logit for P[(Y=3)/(Y>3)]:
+#logit(P[(Y=2)/(Y=3)]) = -3.3536623 -0.5649653 (Sexo = M) +0.6436759 (Metodo = B)
+
+#Logit for P[(Y=4)/(Y>4)]:
+#logit(P[(Y=4)/(Y>4)]) = -1.8668861 -0.5649653 (Sexo = M) +0.6436759 (Metodo = B)
+
+# P[(Y=1)/(Y>1)]
+explogit_p1 <- function(Sexo, Metodo) {
+  exp(-4.2143171 -0.5649653 * Sexo +0.6436759 * Metodo)
+}
+
+p11 <- explogit_p1(0, 0)
+p12 <- explogit_p1(0, 1)
+p13 <- explogit_p1(1, 0)
+p14 <- explogit_p1(1, 1)
+(p1 <- c(p11,p12,p13,p14))
+
+# P[(Y=2)/(Y>2)]
+explogit_p2 <- function(Sexo, Metodo) {
+  exp(-3.6200068 -0.5649653 * Sexo +0.6436759 * Metodo)
+}
+
+p21 <- explogit_p2(0, 0) 
+p22 <- explogit_p2(0, 1)
+p23 <- explogit_p2(1, 0)
+p24 <- explogit_p2(1, 1)
+p2 <- c(p21,p22,p23,p24)
+
+# P[(Y=3)/(Y>3)]
+explogit_p3 <- function(Sexo, Metodo) {
+  exp(-3.3536623 -0.5649653 * Sexo +0.6436759 * Metodo)
+}
+
+p31 <- explogit_p3(0, 0)
+p32 <- explogit_p3(0, 1)
+p33 <- explogit_p3(1, 0)
+p34 <- explogit_p3(1, 1)
+p3 <- c(p31,p32,p33,p34)
+
+# P[(Y=4)/(Y>4)]
+explogit_p4 <- function(Sexo, Metodo) {
+  exp(-1.8668861 -0.5649653 * Sexo +0.6436759 * Metodo)
+}
+
+p41 <- explogit_p4(0, 0)
+p42 <- explogit_p4(0, 1)
+p43 <- explogit_p4(1, 0)
+p44 <- explogit_p4(1, 1)
+p4 <- c(p41,p42,p43,p44)
+
+# Chance de ocorrência da categoria j em relação a j+1
+tab8.21 <- round(cbind(p1,p2,p3,p4), digits = 4)
+colnames(tab8.21) <- c("P(Y=1|X)/P(Y>1|X)","P(Y=2|X)/P(Y>2|X)","P(Y=3|X)/P(Y>3|X)","P(Y=4|X)/P(Y>4|X)")
+rownames(tab8.21) <- c("F A", "F B", "M A", "M B")
+ftable(tab8.21)
+
+
+```
+
+
+
+
+
