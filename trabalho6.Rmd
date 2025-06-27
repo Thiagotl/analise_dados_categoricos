@@ -1,0 +1,64 @@
+---
+title: "Trabalho6"
+author: "Thiago Tavares Lopes"
+date: "2025-06-27"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+library(VGAM)
+library(MASS)
+
+# # 1. Preparação dos dados
+# dados <- data.frame(
+#   tabaco = rep(c("Sim", "Sim", "Não", "Não"), each = 4),
+#   cardiaco = rep(c("Sim", "Sim", "Não", "Não"), each = 4),
+#   saude = rep(c("Excelente", "Bom", "Moderado", "Ruim"), times = 4),
+#   contagem = c(27, 76, 101, 39, 402, 1050, 522, 145, 83, 406, 442, 114, 1959, 4521, 2243, 405)
+# )
+# 
+# # Transformar em formato amplo para cálculo de proporções
+# dados_wide <- dados %>%
+#   group_by(tabaco, cardiaco) %>%
+#   mutate(total = sum(contagem)) %>%
+#   ungroup() %>%
+#   mutate(proporcao = contagem / total)
+
+
+dados <- tribble(
+  ~tabaco, ~cardiaco, ~Excelente, ~Bom, ~Moderado, ~Ruim,
+  "Sim",   "Sim",         27,     76,     101,      39,
+  "Sim",   "Não",        402,    1050,    522,     145,
+  "Não",   "Sim",         83,    406,     442,     114,
+  "Não",   "Não",       1959,   4521,    2243,     405
+)
+
+# Transformar em formato longo
+dados_long <- dados |>
+  pivot_longer(cols = Excelente:Ruim, names_to = "estado_saude", values_to = "freq") |>
+  mutate(
+    tabaco = factor(tabaco),
+    cardiaco = factor(cardiaco),
+    estado_saude = factor(estado_saude, levels = c("Excelente", "Bom", "Moderado", "Ruim"), ordered = TRUE)
+  )
+
+
+# Calcular proporções por grupo
+dados_prob <- dados_long |>
+  group_by(tabaco, cardiaco) |>
+  mutate(proporcao = freq / sum(freq))
+
+# Gráfico de barras empilhadas
+ggplot(dados_prob, aes(x = interaction(tabaco, cardiaco), y = proporcao, fill = estado_saude)) +
+  geom_col() +
+  labs(x = "Tabaco x Problema Cardíaco", y = "Proporção", fill = "Estado de Saúde") +
+  theme_minimal()
+
+
+
+
+
+```
+
