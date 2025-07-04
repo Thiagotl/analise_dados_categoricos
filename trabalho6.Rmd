@@ -85,7 +85,7 @@ ggplot(dados_prob, aes(x = interaction(tabaco, cardiaco), y = proporcao, fill = 
   geom_col() +
   geom_text(aes(label = scales::percent(proporcao, accuracy = 1)),
             position = position_stack(vjust = 0.5), size = 4, color = "black") +
-  scale_fill_brewer(palette = "Pastel1") +
+  scale_fill_brewer(palette = "Blues") +
   labs(x = "Tabaco x Problema Cardíaco", y = "Proporção", fill = "Estado de Saúde") +
   theme_minimal(base_size = 14)
 ```
