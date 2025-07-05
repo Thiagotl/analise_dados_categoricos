@@ -11,19 +11,13 @@ library(VGAM)
 library(MASS)
 library(kableExtra)
 library(knitr)
-library(scales)  # para percent_format
-library(ggtext)  # para formatação se quiser melhorar labels (opcional)
-
+library(scales)  
+library(ggtext)  
 ```
 
 
-```{r include=FALSE}
-
-
-
-
-
-dados <- tribble(
+```{r, echo=FALSE}
+dados <- tibble::tribble(
   ~tabaco, ~cardiaco, ~Excelente, ~Bom, ~Moderado, ~Ruim,
   "Sim",   "Sim",         27,     76,     101,      39,
   "Sim",   "Não",        402,    1050,    522,     145,
@@ -31,23 +25,73 @@ dados <- tribble(
   "Não",   "Não",       1959,   4521,    2243,     405
 )
 
-# Transformar em formato longo
-dados_long <- dados |>
-  pivot_longer(cols = Excelente:Ruim, names_to = "estado_saude", values_to = "freq") |>
+dados_df <- as.data.frame(dados)
+
+dados_p <- dados_df  |> 
+  mutate(Total = Excelente + Bom + Moderado + Ruim) |>
   mutate(
-    tabaco = factor(tabaco),
-    cardiaco = factor(cardiaco),
-    estado_saude = factor(estado_saude, levels = c("Excelente", "Bom", "Moderado", "Ruim"), ordered = TRUE)
-  )
+    Excelente = Excelente / Total,
+    Bom = Bom / Total,
+    Moderado = Moderado / Total,
+    Ruim = Ruim / Total
+  ) |> 
+  dplyr::select(-Total)  
 
+dados_p$tabaco <- factor(dados_p$tabaco, levels = c("Sim", "Não"))
+dados_p$cardiaco <- factor(dados_p$cardiaco, levels = c("Sim", "Não"), 
+                           labels = c("Cardíaco", "Não Cardíaco"))
 
-# Calcular proporções por grupo
-dados_prob <- dados_long |>
-  group_by(tabaco, cardiaco) |>
-  mutate(proporcao = freq / sum(freq))
-attach(dados_prob)
+dados_melt <- dados_p |>
+  pivot_longer(
+    cols = c(Excelente, Bom, Moderado, Ruim),
+    names_to = "Saude",
+    values_to = "Proporcao"
+  ) |>
+  mutate(Saude = factor(Saude, 
+                        levels = c("Ruim", "Moderado", "Bom", "Excelente"),
+                        ordered = TRUE))
+
+dados_cardiaco <- subset(dados_melt, cardiaco == "Cardíaco")
+dados_nao_cardiaco <- subset(dados_melt, cardiaco == "Não Cardíaco")
+
+plot_grafico <- function(dados) {
+  ggplot(dados, aes(x = tabaco, y = Proporcao, fill = Saude)) +
+    geom_bar(stat = "identity", position = position_dodge(preserve = "single")) +
+    labs(
+      x = "Tabagismo", 
+      y = "Proporção", 
+      fill = "Condição de Saúde",
+      title = paste("Pacientes", unique(dados$cardiaco))
+    ) +
+    scale_fill_manual(values = c(
+      "Ruim" = "#e7298a",
+      "Moderado" = "#7570b3",
+      "Bom" = "#d95f02",
+      "Excelente" = "#1b9e77"
+    )) +
+    geom_text(
+      aes(label = paste0(round(Proporcao * 100), "%")),
+      position = position_dodge(width = 0.9),
+      vjust = -0.5,
+      size = 3
+    ) +
+    scale_y_continuous(limits = c(0, 0.7), expand = expansion(mult = c(0, 0.1))) +
+    theme_minimal() +
+    theme(
+      legend.position = "right",
+      panel.grid.major.x = element_blank(),
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.title = element_text(face = "bold")
+    )
+}
+
+plot_grafico(dados_cardiaco)
+plot_grafico(dados_nao_cardiaco)
 
 ```
+
+
+
 
 ```{r, echo=FALSE}
 dados1 <- dados |> 
@@ -65,30 +109,6 @@ dados1 |>
 
 
 
-
-```{r, echo=FALSE}
-
-# Gráfico de barras empilhadas
-
-# ggplot(dados_prob, aes(x = interaction(tabaco, cardiaco), y = proporcao, fill = estado_saude)) +
-#   geom_col() +
-#   labs(x = "Tabaco x Problema Cardíaco", y = "Proporção", fill = "Estado de Saúde") +
-#   theme_minimal()
-
-
-```
-
-```{r, echo=FALSE, warning=FALSE}
-
-# Gráfico com valores e cores em tons pastel
-ggplot(dados_prob, aes(x = interaction(tabaco, cardiaco), y = proporcao, fill = estado_saude)) +
-  geom_col() +
-  geom_text(aes(label = scales::percent(proporcao, accuracy = 1)),
-            position = position_stack(vjust = 0.5), size = 4, color = "black") +
-  scale_fill_brewer(palette = "Blues") +
-  labs(x = "Tabaco x Problema Cardíaco", y = "Proporção", fill = "Estado de Saúde") +
-  theme_minimal(base_size = 14)
-```
 
 ```{r}
 # Modelo chances não proporcionais
