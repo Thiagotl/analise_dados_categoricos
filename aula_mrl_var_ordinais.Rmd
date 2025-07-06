@@ -305,7 +305,6 @@ plot_grafico(dados_B)
 
 ### Tabela 8.12 - Pacientes com artrite
 ```{r tab8.12, echo=FALSE}
-rm(list=objects())
 
 dados <- data.frame(
   Tratamento = c(0,0,1,1),

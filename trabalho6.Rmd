@@ -108,9 +108,15 @@ dados1 |>
 ```
 
 
+## Ajuste do modelo para Tabaco
 
+Ajuste dos modelos para chances proporcionais (modelo mais simples) e para chances não proporcionais (modelo mais completo). 
+
+No caso, temos que $H_{0}:\text{O modelo de chances proporcionais é o correto}$ \textit(arrumar esse termos aqui depois). 
 
 ```{r}
+# Modelo Tabaco
+
 # Modelo chances não proporcionais
 mcnp <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco,
              cumulative(parallel=FALSE,reverse=FALSE), dados)
@@ -123,14 +129,23 @@ round(coef(mcnp, matrix = TRUE), digits = 3)
 round(coef(mcp, matrix = TRUE), digits = 3)
 
 # Comparação dos modelos
-TRV <- 2*(logLik(mcnp) - logLik(mcp))
-gl <- length(coef(mcnp)) - length(coef(mcp))
-p <- 1-pchisq(TRV,gl)
-cbind(TRV, gl, p)
+# TRV <- 2*(logLik(mcnp) - logLik(mcp))
+# gl <- length(coef(mcnp)) - length(coef(mcp))
+# p <- 1-pchisq(TRV,gl)
+# cbind(TRV, gl, p)
 
 lrtest(mcnp, mcp)
 
 ```
+
+No caso, para os ajuste do modelo para a variável tabaco:
+
+- Modelo 1 (mais simples): assume efeito constante do tabaco para todas as transições (modelo de chances proporcionais, `parallel = TRUE`)
+
+- Modelo 2 (mais complexo): permite que o efeito de tabaco varie entre as categorias (modelo de chances não proporcionais, `parallel = FALSE`)
+
+Como o p-valor foi menor que 0.05, rejeitamos $H_{0}$, e podemos concluir que o modelo de chances proporcionais não é o modelo mais adequado. 
+
 
 ```{r}
 # Modelos com somente CARDIACO
@@ -147,10 +162,10 @@ coef(mcnp, matrix = TRUE)
 coef(mcp, matrix = TRUE)
 
 # Comparação dos modelos
-TRV <- 2*(logLik(mcnp) - logLik(mcp))
-gl <- length(coef(mcnp)) - length(coef(mcp))
-p <- 1-pchisq(TRV,gl)
-cbind(TRV, gl, p)
+# TRV <- 2*(logLik(mcnp) - logLik(mcp))
+# gl <- length(coef(mcnp)) - length(coef(mcp))
+# p <- 1-pchisq(TRV,gl)
+# cbind(TRV, gl, p)
 
 lrtest(mcnp, mcp)
 ```
