@@ -18,11 +18,11 @@ library(ggtext)
 
 ```{r, echo=FALSE}
 dados <- tibble::tribble(
-  ~tabaco, ~cardiaco, ~Excelente, ~Bom, ~Moderado, ~Ruim,
-  "Sim",   "Sim",         27,     76,     101,      39,
-  "Sim",   "Não",        402,    1050,    522,     145,
-  "Não",   "Sim",         83,    406,     442,     114,
-  "Não",   "Não",       1959,   4521,    2243,     405
+  ~tabaco, ~cardiaco, ~Excelente, ~Bom, ~Moderado, ~Ruim, 
+  "Sim",   "Sim",         27,     76,     101,      39,    
+  "Sim",   "Não",        402,    1050,    522,     145,    
+  "Não",   "Sim",         83,    406,     442,     114,   
+  "Não",   "Não",       1959,   4521,    2243,     405,   
 )
 
 dados_df <- as.data.frame(dados)
@@ -112,7 +112,7 @@ dados1 |>
 
 Ajuste dos modelos para chances proporcionais (modelo mais simples) e para chances não proporcionais (modelo mais completo). 
 
-No caso, temos que $H_{0}:\text{O modelo de chances proporcionais é o correto}$ \textit(arrumar esse termos aqui depois). 
+No caso, temos que $H_{0}:\text{O modelo de chances proporcionais é o mais adequado}$ 
 
 ```{r}
 # Modelo Tabaco
@@ -146,6 +146,11 @@ No caso, para os ajuste do modelo para a variável tabaco:
 
 Como o p-valor foi menor que 0.05, rejeitamos $H_{0}$, e podemos concluir que o modelo de chances proporcionais não é o modelo mais adequado. 
 
+## Ajuste do modelo para Cardiaco
+
+Ajuste dos modelos para chances proporcionais (modelo mais simples) e para chances não proporcionais (modelo mais completo). 
+
+No caso, temos que $H_{0}:\text{O modelo de chances proporcionais é o correto}$ \textit(arrumar esse termos aqui depois). 
 
 ```{r}
 # Modelos com somente CARDIACO
@@ -158,8 +163,8 @@ mcnp <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco,
 mcp <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco,
             cumulative(parallel=TRUE,reverse=FALSE), dados) 
 
-coef(mcnp, matrix = TRUE)
-coef(mcp, matrix = TRUE)
+#coef(mcnp, matrix = TRUE)
+#coef(mcp, matrix = TRUE)
 
 # Comparação dos modelos
 # TRV <- 2*(logLik(mcnp) - logLik(mcp))
@@ -170,4 +175,306 @@ coef(mcp, matrix = TRUE)
 lrtest(mcnp, mcp)
 ```
 
+No caso, para os ajuste do modelo para a variável cardiaco:
+
+- Modelo 1 (mais simples): assume efeito constante do cardiaco para todas as transições (modelo de chances proporcionais, `parallel = TRUE`)
+
+- Modelo 2 (mais complexo): permite que o efeito de cardiaco varie entre as categorias (modelo de chances não proporcionais, `parallel = FALSE`)
+
+Como o p-valor foi maior que 0.05, não rejeitamos $H_{0}$, e podemos concluir que o modelo de chances proporcionais é o modelo mais adequado. 
+
+
+## Ajuste do modelo para Tabaco + Cardiaco
+
+Neste caso, foram ajustados dois modelos com a relação aditiva entre as variáveis $\text{cardiaco + tabaco}$, são eles :
+
+- Modelo de chances proporcionais (MCP), que assume que os efeitos das covariáveis são constantes entre os diferentes pontos de corte da escala ordinal.
+
+- Modelo de chances não proporcionais (MCNP), que relaxa essa suposição, permitindo que o efeito das covariáveis varie entre os níveis da resposta ordinal.
+
+```{r}
+# CARDIACO E TABACO
+# Modelo chances não proporcionais
+mcnp <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco + tabaco,
+             cumulative(parallel=FALSE,reverse=FALSE), dados)
+
+# Modelo de chances proporcionais
+mcp <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco + tabaco,
+            cumulative(parallel=TRUE,reverse=FALSE), dados) 
+round(coef(mcnp, matrix = TRUE), digits = 3)
+round(coef(mcp, matrix = TRUE), digits = 3)
+
+# Comparação dos modelos
+# TRV <- 2*(logLik(mcnp) - logLik(mcp))
+# gl <- length(coef(mcnp)) - length(coef(mcp))
+# p <- 1-pchisq(TRV,gl)
+# cbind(TRV, gl, p)
+
+lrtest(mcnp, mcp)
+```
+
+Como o p-valor foi menor que 0.05,  rejeitamos $H_{0}$, e podemos concluir que o modelo de chances proporcionais não é o modelo mais adequado. 
+
+
+
+```{r}
+
+# Adotando-se o MCNP, vamos comparar os modelos de forma hierárquica
+mcnp0 <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ 1,
+            cumulative(parallel=FALSE,reverse=FALSE), dados) 
+mcnp1 <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco,
+            cumulative(parallel=FALSE,reverse=FALSE), dados) 
+mcnp2 <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ factor(tabaco) + factor(cardiaco),
+            cumulative(parallel=FALSE,reverse=FALSE), dados) 
+mcnp3 <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco*cardiaco,
+            cumulative(parallel=FALSE,reverse=FALSE), dados) 
+
+# GL = s(r-1)-p; s = 4 (nro combinações de X); r = 3 (nro categorias de Y)
+GL_ <- as.numeric(c(8-length(coef(mcnp0)),
+         8-length(coef(mcnp1)),
+         8-length(coef(mcnp2)),
+         8-length(coef(mcnp3))))
+Deviance_ <- round(as.numeric(c(deviance(mcnp0),
+               deviance(mcnp1),
+               deviance(mcnp2),
+               deviance(mcnp3))), digits = 2)
+TRV_ <- round(as.numeric(c(NA,
+         deviance(mcnp0)-deviance(mcnp1),
+         deviance(mcnp1)-deviance(mcnp2),
+         deviance(mcnp2)-deviance(mcnp3))), digits = 2)
+AIC_ <- round(as.numeric(c(AIC(mcnp0),AIC(mcnp1),AIC(mcnp2),AIC(mcnp3))), digits = 2)
+Dif_ <- as.numeric(c(NA,
+           df.residual(mcnp0)-df.residual(mcnp1),
+           df.residual(mcnp1)-df.residual(mcnp2),
+           df.residual(mcnp2)-df.residual(mcnp3)))
+
+P_v  <- round(as.numeric(c(NA,
+         1-pchisq(TRV_[2],Dif_[2]),
+         1-pchisq(TRV_[3],Dif_[3]),
+         1-pchisq(TRV_[4],Dif_[4]))), digits = 3)
+
+tab8.7 <- round(cbind(GL_, Deviance_, TRV_, Dif_, P_v, AIC_), digits = 4)
+colnames(tab8.7) <- c("GL", "Deviance", "TRV", "Dif", "P-v", "AIC")
+rownames(tab8.7) <- c("Nulo", "X1", "X2|X1", "X1*X2|X1,X2")
+tab8.7
+
+
+```
+
+
+## Modelo logitos categorias adjacentes
+
+```{r}
+## Modelo logitos categorias adjacentes
+dados <- tibble::tribble(
+  ~tabaco, ~cardiaco, ~Excelente, ~Bom, ~Moderado, ~Ruim, 
+  "Sim",   "Sim",         27,     76,     101,      39,    
+  "Sim",   "Não",        402,    1050,    522,     145,    
+  "Não",   "Sim",         83,    406,     442,     114,   
+  "Não",   "Não",       1959,   4521,    2243,     405,   
+)
+
+dados_df <- as.data.frame(dados)
+
+dados_p <- dados_df  |> 
+  mutate(Total = Excelente + Bom + Moderado + Ruim) |>
+  mutate(
+    Excelente = Excelente / Total,
+    Bom = Bom / Total,
+    Moderado = Moderado / Total,
+    Ruim = Ruim / Total
+  ) |> 
+  dplyr::select(-Total)  
+
+dados_p$tabaco <- factor(dados_p$tabaco, levels = c("Sim", "Não"))
+dados_p$cardiaco <- factor(dados_p$cardiaco, levels = c("Sim", "Não"), 
+                           labels = c("Cardíaco", "Não Cardíaco"))
+
+dados_melt <- dados_p |>
+  pivot_longer(
+    cols = c(Excelente, Bom, Moderado, Ruim),
+    names_to = "Saude",
+    values_to = "Proporcao"
+  ) |>
+  mutate(Saude = factor(Saude, 
+                        levels = c("Ruim", "Moderado", "Bom", "Excelente"),
+                        ordered = TRUE))
+
+dados_cardiaco <- subset(dados_melt, cardiaco == "Cardíaco")
+dados_nao_cardiaco <- subset(dados_melt, cardiaco == "Não Cardíaco")
+
+
+```
+
+
+```{r}
+# Ajuste do modelo de chances proporcionais (mlca_p) e não proporcionais (mlca_np)
+mlca_np <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco + cardiaco, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco + cardiaco, family=acat(reverse=T,parallel=F), dados)
+
+# coef(mlca_np, matrix = TRUE)
+# coef(mlca_p, matrix = TRUE)
+
+lrtest(mlca_p,mlca_np)
+```
+
+Como o p-valor foi menor que 0.05,  rejeitamos $H_{0}$, e podemos concluir que o modelo de cumulativo de chances proporcionais não é o modelo mais adequado. 
+
+
+```{r}
+# Comparação dos modelos apenas para X1 (Tabaco)
+mlca_np <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ tabaco, family=acat(reverse=T,parallel=F), dados)
+lrtest(mlca_p,mlca_np)
+
+```
+
+```{r}
+# Comparação dos modelos apenas para X2 (cardiaco)
+mlca_np <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco, family=acat(reverse=T,parallel=T), dados)
+mlca_p <- vglm(cbind(Excelente,Bom,Moderado,Ruim) ~ cardiaco, family=acat(reverse=T,parallel=F), dados)
+lrtest(mlca_p,mlca_np)
+
+```
+
+Para o 6 modelos, como o p-valor foi menor que 0.05,  rejeitamos $H_{0}$, e podemos concluir que o modelo de chances proporcionais não é o modelo mais adequado. 
+
+Então, foi adotou-se o modelo de chances não proporcionais.
+
+```{r}
+# Ajuste do modelo de chances proporcinais parciais
+mca0 <- vglm(cbind(Excelente,Bom,Moderado,Ruim)  ~ 1, acat(parallel=F ~ tabaco, reverse=T), dados)
+mca1 <- vglm(cbind(Excelente,Bom,Moderado,Ruim)  ~ tabaco, acat(parallel=F ~ tabaco, reverse=T), dados)
+mca2 <- vglm(cbind(Excelente,Bom,Moderado,Ruim)  ~ tabaco + cardiaco, acat(parallel=F ~ tabaco, reverse=T), dados)
+mca3 <- vglm(cbind(Excelente,Bom,Moderado,Ruim)  ~ tabaco * cardiaco, acat(parallel=F ~ tabaco, reverse=T), dados)
+```
+
+
+```{r}
+# GL = s(r-1)-p; s = 4 (nro combinações de X); r = 4 (nro categorias de Y)
+GL_ <- as.numeric(c(12-length(coef(mca0)),
+         12-length(coef(mca1)),
+         12-length(coef(mca2)),
+         12-length(coef(mca3))))
+
+Deviance_ <- round(as.numeric(c(deviance(mca0),
+               deviance(mca1),
+               deviance(mca2),
+               deviance(mca3))), digits = 3)
+
+TRV_ <- round(as.numeric(c(NA,
+         deviance(mca0)-deviance(mca1),
+         deviance(mca1)-deviance(mca2),
+         deviance(mca2)-deviance(mca3))), digits = 3)
+
+AIC_ <- round(as.numeric(c(AIC(mca0),AIC(mca1),AIC(mca2),AIC(mca3))), digits = 2)
+
+Dif_ <- as.numeric(c(NA,
+           df.residual(mca0)-df.residual(mca1),
+           df.residual(mca1)-df.residual(mca2),
+           df.residual(mca2)-df.residual(mca3)))
+
+P_v  <- round(as.numeric(c(NA,
+         1-pchisq(TRV_[2],Dif_[2]),
+         1-pchisq(TRV_[3],Dif_[3]),
+         1-pchisq(TRV_[4],Dif_[4]))), digits = 3)
+
+tab8.13 <- cbind(GL_, Deviance_, TRV_, Dif_, P_v, AIC_)
+colnames(tab8.13) <- c("GL", "Deviance", "TRV", "Dif", "P-v", "AIC")
+rownames(tab8.13) <- c("Nulo", "X1", "X2|X1", "X1*X2|X1,X2")
+tab8.13
+```
+
+Pelo AIC, foi escolhido o modelo `mca2`.
+
+```{r}
+summary(mca2)
+```
+
+
+```{r}
+tab8.14 <- round(coef(mca2, matrix = TRUE), digits = 3)
+ftable(tab8.14)
+
+mca2@y # probabilidades observadas
+
+tab8.15 <- round(fitted(mca2), digits = 4) # probabilidades preditas (Tab8.15)
+colnames(tab8.15) <- c("p1(X)", "p2(X)", "p3(X)", "p4(X)")
+rownames(tab8.15) <- c("A  M", "A  F", "B  M", "B  F")
+ftable(tab8.15)
+
+dif_prob <- mca2@y - fitted(mca2) # diferença
+dif_melt <- reshape2::melt(dif_prob)
+dif_melt$Var1 <- seq(1:16)
+```
+
+
+```{r}
+ggplot(dif_melt, aes(x = Var1, y = value)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Prob. Obs. - Prob. Pred.", title = "Diferença entre probabilidades observadas e preditas") +
+  scale_x_continuous(breaks = seq(1:16)) + ylim(-0.5, 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+# Análise de resíduos
+residuos <- residuals(mca2, type = "pearson")
+data <- data.frame(Residuos = c(residuos[,1], residuos[,2], residuos[,3]))
+data$Observacao <- seq(1:12)
+ggplot(data, aes(x = Observacao, y = Residuos)) +
+  geom_point(shape = 16) +
+  labs(x = "Índice", y = "Resíduos de Pearson", title = "Resíduos do Modelo MCA2") +
+  scale_x_continuous(breaks = 1:length(residuos)) + ylim(-3, 3) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+```
+
+
+```{r}
+explogit_p1 <- function(tabaco, cardiaco) {
+  exp(-0.502 + 0.307 * tabaco + 0.228 * cardiaco)
+}
+
+p11 <- explogit_p1(0, 1)
+p12 <- explogit_p1(0, 0)
+p13 <- explogit_p1(1, 1)
+p14 <- explogit_p1(1, 0)
+(p1 <- c(p11,p12,p13,p14))
+
+# P[(Y=2)/(Y=3)]
+explogit_p2 <- function(tabaco,cardiaco) {
+  exp(-0.737 - 0.218 * tabaco + 0.228 * cardiaco)
+}
+
+p21 <- explogit_p2(0, 1) 
+p22 <- explogit_p2(0, 0)
+p23 <- explogit_p2(1, 1)
+p24 <- explogit_p2(1, 0)
+p2 <- c(p21,p22,p23,p24)
+
+# P[(Y=3)/(Y=4)]
+explogit_p3 <- function(tabaco,cardiaco) {
+  exp(0.568 - 0.887 * tabaco + 0.228 * cardiaco)
+}
+
+p31 <- explogit_p3(0, 1)
+p32 <- explogit_p3(0, 0)
+p33 <- explogit_p3(1, 1)
+p34 <- explogit_p3(1, 0)
+p3 <- c(p31,p32,p33,p34)
+
+# Chance de ocorrência da categoria j em relação a j+1
+tab8.16 <- round(cbind(p1,p2,p3), digits = 2)
+colnames(tab8.16) <- c("p_1(X)/p_2(X)", "p_2(X)/p_3(X)", "p_3(X)/p_4(X)")
+rownames(tab8.16) <- c("A  M", "A  F", "B  M", "B  F")
+ftable(tab8.16)
+
+```
 
