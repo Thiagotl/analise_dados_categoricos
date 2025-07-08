@@ -437,6 +437,10 @@ ggplot(data, aes(x = Observacao, y = Residuos)) +
 ```
 
 
+
+## Conclusões para razões de chances acumuladas.
+
+
 ```{r}
 explogit_p1 <- function(tabaco, cardiaco) {
   exp(-0.502 + 0.307 * tabaco + 0.228 * cardiaco)
@@ -478,3 +482,9 @@ ftable(tab8.16)
 
 ```
 
+As razões de chances aqui indicam, para cada par de categorias consecutivas de saúde (de "Excelente" até "Ruim"), a chance de um indivíduo estar em uma categoria melhor em relação à próxima pior. Valores maiores que 1 indicam maior chance de estar na categoria superior (melhor saúde), enquanto valores menores que 1 indicam maior chance de estar na categoria inferior (pior saúde).
+
+- O tabagismo parece estar associado a uma pior percepção de saúde, reduzindo as chances de estar nas categorias superiores.
+- A presença de doença cardíaca também agrava a percepção de saúde, mas o tabaco tem um efeito mais pronunciado nas categorias inferiores
+- O grupo não fumante e sem problema cardíaco (A F) apresenta os melhores indicadores.
+- O grupo fumante com problema cardíaco (B M) apresenta a situação mais crítica.
